@@ -6,12 +6,12 @@ using BrickOps.Networking;
 public class MainMenuController : MonoBehaviour
 {
     [SerializeField] private Button createServerButton;
-    [SerializeField] private Button joinServerButton;
+    [SerializeField] private Button joinClientButton;
 
     void Start()
     {
         createServerButton.onClick.AddListener(OnCreateServer);
-        joinServerButton.onClick.AddListener(OnJoinServer);
+        joinClientButton.onClick.AddListener(OnJoinClient);
     }
 
     void OnCreateServer()
@@ -22,12 +22,13 @@ public class MainMenuController : MonoBehaviour
             GameObject nmObj = new GameObject("NetworkManager");
             NetworkManager nm = nmObj.AddComponent<NetworkManager>();
             nm.isServer = true;
+            nm.port = 6000;
         }
         
-        SceneManager.LoadScene("ServerLobby");
+        SceneManager.LoadScene("ServerScene");
     }
 
-    void OnJoinServer()
+    void OnJoinClient()
     {
         // Crear NetworkManager como cliente
         if (NetworkManager.Instance == null)
@@ -36,6 +37,6 @@ public class MainMenuController : MonoBehaviour
             nmObj.AddComponent<NetworkManager>();
         }
         
-        SceneManager.LoadScene("ClientConnect");
+        SceneManager.LoadScene("WaitingRoom");
     }
 }

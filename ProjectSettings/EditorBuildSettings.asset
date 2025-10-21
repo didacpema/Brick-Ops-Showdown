@@ -6,20 +6,17 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Menu.unity
-    guid: b844b39c2153e9f4683e802e9249c127
+    path: Assets/Scenes/Prueba Izan/MainMenu.unity
+    guid: ef712432f216f0044885ab7193a94779
   - enabled: 1
-    path: Assets/Scenes/TCP_Client.unity
-    guid: 78879c0c544ae9e488ad54fbf7ea7896
+    path: Assets/Scenes/Prueba Izan/ServerScene.unity
+    guid: 43ff5aec63973b045a63528760450086
   - enabled: 1
-    path: Assets/Scenes/TCP_Server.unity
-    guid: e4d01080fddc5734ba59dbfe91e56020
+    path: Assets/Scenes/Prueba Izan/WaitingRoom.unity
+    guid: 46759e0b2a5a150439a6213b551d7ee0
   - enabled: 1
-    path: Assets/Scenes/UDP_Client.unity
-    guid: 0d3e5420dbc58d24e8cbe25211d2ef6a
-  - enabled: 1
-    path: Assets/Scenes/UDP_Server.unity
-    guid: e7645880f82925d42b02eefaca68cb44
+    path: Assets/Scenes/Prueba Izan/Game.unity
+    guid: 81972d0b81a3e2348bc140fa21683ff1
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
