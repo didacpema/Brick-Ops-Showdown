@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class UDPServer_Select : MonoBehaviour
 {
@@ -18,6 +19,8 @@ public class UDPServer_Select : MonoBehaviour
 
     [Header("UI (TMP)")]
     public TMP_Text logDisplay;
+    private bool gameStarted = false;
+    private const int MAX_PLAYERS = 2;
 
     void Start()
     {
@@ -30,6 +33,22 @@ public class UDPServer_Select : MonoBehaviour
     void Update()
     {
         ReceiveMessages();
+    }
+
+    // Añade este método para verificar si hay suficientes jugadores
+    void CheckStartGame()
+    {
+        if (!gameStarted && clients.Count >= MAX_PLAYERS)
+        {
+            gameStarted = true;
+            Log("[Server] Starting game with 2 players!");
+            
+            // Notificar a todos los clientes que el juego comienza
+            BroadcastGameStart();
+            
+            // Cambiar a la escena de juego en el servidor
+            SceneManager.LoadScene("Game");
+        }
     }
 
     void ReceiveMessages()
@@ -58,13 +77,23 @@ public class UDPServer_Select : MonoBehaviour
             SendTo(sender, $"Welcome to {serverName}!");
             Broadcast($"{msg} joined the room.", sender);
             Log($"[UDP Server] {msg} joined from {sender}");
+
+            CheckStartGame();
         }
         else
         {
-            string name = playerNames[sender];
-            string formatted = $"[{name}]: {msg}";
-            Broadcast(formatted, sender);
-            Log(formatted);
+            // Si el mensaje contiene "PLAYER_DATA:", es datos serializados
+            if (msg.StartsWith("PLAYER_DATA:"))
+            {
+                BroadcastPlayerData(msg, sender);
+            }
+            else
+            {
+                string name = playerNames[sender];
+                string formatted = $"[{name}]: {msg}";
+                Broadcast(formatted, sender);
+                Log(formatted);
+            }
         }
     }
 
@@ -94,5 +123,18 @@ public class UDPServer_Select : MonoBehaviour
             if (logDisplay.text.Length > 5000)
                 logDisplay.text = logDisplay.text[^5000..];
         }
+    }
+
+    // Método para notificar inicio del juego
+    void BroadcastGameStart()
+    {
+        string startMsg = "GAME_START";
+        Broadcast(startMsg);
+    }
+
+    // Método para reenviar datos de jugador
+    void BroadcastPlayerData(string data, IPEndPoint sender)
+    {
+        Broadcast(data, sender);
     }
 }

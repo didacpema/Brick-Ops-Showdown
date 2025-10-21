@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class UDPClient_Select : MonoBehaviour
 {
@@ -86,7 +87,23 @@ public class UDPClient_Select : MonoBehaviour
                 if (bytes > 0)
                 {
                     string msg = Encoding.UTF8.GetString(buffer, 0, bytes);
-                    AppendChat(msg);
+                    
+                    // AÑADE ESTA VERIFICACIÓN
+                    if (msg == "GAME_START")
+                    {
+                        AppendChat("Game is starting!");
+                        // Pequeño delay para que se vea el mensaje
+                        Invoke("LoadGameScene", 1f);
+                    }
+                    else if (msg.StartsWith("PLAYER_DATA:"))
+                    {
+                        // Esto se manejará en la escena Game
+                        AppendChat("Receiving game data...");
+                    }
+                    else
+                    {
+                        AppendChat(msg);
+                    }
                 }
             }
         }
@@ -142,5 +159,10 @@ public class UDPClient_Select : MonoBehaviour
     void OnApplicationQuit()
     {
         try { udpSocket?.Close(); } catch { }
+    }
+
+    void LoadGameScene()
+    {
+        SceneManager.LoadScene("Game");
     }
 }
