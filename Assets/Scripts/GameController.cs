@@ -62,10 +62,16 @@ public class GameController : MonoBehaviour
 
     private int myPlayerId;
     private float nextSendTime = 0f;
+    
+    // Estadísticas de red para debug
+    private int packetsSent = 0;
+    private int packetsReceived = 0;
+    private int packetsReceivedFromOther = 0;
 
     void Start()
     {
         Debug.Log("=== GameController Start ===");
+        Debug.Log($"GameController Instance: {GetInstanceID()}");
         
         if (NetworkManager.Instance == null)
         {
@@ -74,6 +80,7 @@ public class GameController : MonoBehaviour
             return;
         }
 
+        Debug.Log($"NetworkManager Info: {NetworkManager.Instance.GetDebugInfo()}");
         myPlayerId = NetworkManager.Instance.myPlayerId;
         Debug.Log($"My Player ID: {myPlayerId}");
 
@@ -84,6 +91,16 @@ public class GameController : MonoBehaviour
             return;
         }
 
+        // Verificar que player1Object y player2Object están asignados
+        if (player1Object == null || player2Object == null)
+        {
+            Debug.LogError("Player objects not assigned in inspector!");
+            return;
+        }
+        
+        Debug.Log($"Player1Object: {player1Object.name} at {player1Object.transform.position}");
+        Debug.Log($"Player2Object: {player2Object.name} at {player2Object.transform.position}");
+
         // Asignar objetos y cámaras según ID
         if (myPlayerId == 1)
         {
@@ -93,21 +110,32 @@ public class GameController : MonoBehaviour
             
             camera1.enabled = true;
             camera2.enabled = false;
+            
+            // Desactivar AudioListener de la cámara no usada
+            AudioListener listener2 = camera2.GetComponent<AudioListener>();
+            if (listener2 != null) listener2.enabled = false;
+            
+            AudioListener listener1 = camera1.GetComponent<AudioListener>();
+            if (listener1 != null) listener1.enabled = true;
 
-            // Asegurar que los materiales sean diferentes
+            // CRÍTICO: Crear materiales NUEVOS para evitar compartir el mismo material
             Renderer myRenderer = player1Object.GetComponent<Renderer>();
             Renderer otherRenderer = player2Object.GetComponent<Renderer>();
             
             if (myRenderer != null && myRenderer.material != null)
             {
+                // Crear nueva instancia del material
+                myRenderer.material = new Material(myRenderer.material);
                 myRenderer.material.color = Color.blue;
-                Debug.Log("Player 1 (ME) set to BLUE");
+                Debug.Log("Player 1 (ME) set to BLUE with new material instance");
             }
             
             if (otherRenderer != null && otherRenderer.material != null)
             {
+                // Crear nueva instancia del material
+                otherRenderer.material = new Material(otherRenderer.material);
                 otherRenderer.material.color = Color.red;
-                Debug.Log("Player 2 (OTHER) set to RED");
+                Debug.Log("Player 2 (OTHER) set to RED with new material instance");
             }
         }
         else if (myPlayerId == 2)
@@ -118,28 +146,39 @@ public class GameController : MonoBehaviour
             
             camera1.enabled = false;
             camera2.enabled = true;
+            
+            // Desactivar AudioListener de la cámara no usada
+            AudioListener listener1 = camera1.GetComponent<AudioListener>();
+            if (listener1 != null) listener1.enabled = false;
+            
+            AudioListener listener2 = camera2.GetComponent<AudioListener>();
+            if (listener2 != null) listener2.enabled = true;
 
-            // Asegurar que los materiales sean diferentes
+            // CRÍTICO: Crear materiales NUEVOS para evitar compartir el mismo material
             Renderer myRenderer = player2Object.GetComponent<Renderer>();
             Renderer otherRenderer = player1Object.GetComponent<Renderer>();
             
             if (myRenderer != null && myRenderer.material != null)
             {
+                // Crear nueva instancia del material
+                myRenderer.material = new Material(myRenderer.material);
                 myRenderer.material.color = Color.blue;
-                Debug.Log("Player 2 (ME) set to BLUE");
+                Debug.Log("Player 2 (ME) set to BLUE with new material instance");
             }
             
             if (otherRenderer != null && otherRenderer.material != null)
             {
+                // Crear nueva instancia del material
+                otherRenderer.material = new Material(otherRenderer.material);
                 otherRenderer.material.color = Color.red;
-                Debug.Log("Player 1 (OTHER) set to RED");
+                Debug.Log("Player 1 (OTHER) set to RED with new material instance");
             }
         }
 
         // Configurar UI (puede ser null si no está asignado)
         if (infoText != null)
         {
-            infoText.text = $"You are Player {myPlayerId}\nWASD: Move | Q/E: Rotate\nESC: Exit";
+            UpdateInfoText();
         }
 
         // Configurar socket
@@ -158,6 +197,14 @@ public class GameController : MonoBehaviour
         myData = new PlayerData(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y);
         
         Debug.Log($"GameController initialized for Player {myPlayerId}");
+        Debug.Log($"<color=lime>==========================================");
+        Debug.Log($"Player {myPlayerId} is ready to send/receive data!");
+        Debug.Log($"My Object: {myPlayerObject.name} (Blue) - Instance ID: {myPlayerObject.GetInstanceID()}");
+        Debug.Log($"Other Object: {otherPlayerObject.name} (Red) - Instance ID: {otherPlayerObject.GetInstanceID()}");
+        Debug.Log($"My Material ID: {myPlayerObject.GetComponent<Renderer>().material.GetInstanceID()}");
+        Debug.Log($"Other Material ID: {otherPlayerObject.GetComponent<Renderer>().material.GetInstanceID()}");
+        Debug.Log($"Socket connected: {(udpSocket != null ? "YES" : "NO")}");
+        Debug.Log($"==========================================</color>");
     }
 
     void Update()
@@ -175,22 +222,77 @@ public class GameController : MonoBehaviour
         // Actualizar posición del otro jugador (interpolación)
         if (otherData != null && otherPlayerObject != null)
         {
+            Vector3 targetPos = otherData.GetPosition();
+            Vector3 currentPos = otherPlayerObject.transform.position;
+            
+            // Interpolar posición
             otherPlayerObject.transform.position = Vector3.Lerp(
-                otherPlayerObject.transform.position,
-                otherData.GetPosition(),
+                currentPos,
+                targetPos,
                 Time.deltaTime * 10f
             );
 
+            // Interpolar rotación
             Quaternion targetRot = Quaternion.Euler(0, otherData.rotY, 0);
             otherPlayerObject.transform.rotation = Quaternion.Lerp(
                 otherPlayerObject.transform.rotation,
                 targetRot,
                 Time.deltaTime * 10f
             );
+            
+            // Debug visual cada 3 segundos
+            if (Time.frameCount % 180 == 0)
+            {
+                float distance = Vector3.Distance(currentPos, targetPos);
+                Debug.Log($"[Player {myPlayerId}] OTHER player current pos: {currentPos}, target pos: {targetPos}, distance: {distance:F2}");
+            }
+        }
+        else
+        {
+            // Si no hay datos del otro jugador, mostrar warning ocasionalmente
+            if (Time.frameCount % 300 == 0) // Cada 5 segundos
+            {
+                if (otherData == null)
+                    Debug.LogWarning($"[Player {myPlayerId}] No data received from other player yet!");
+                if (otherPlayerObject == null)
+                    Debug.LogError($"[Player {myPlayerId}] otherPlayerObject is NULL!");
+            }
         }
 
         // Actualizar cámara
         UpdateCamera();
+        
+        // Actualizar UI cada frame
+        if (infoText != null)
+        {
+            UpdateInfoText();
+        }
+        
+        // Mostrar estadísticas cada 5 segundos
+        if (Time.frameCount % 300 == 0 && Time.frameCount > 0)
+        {
+            Debug.Log($"<color=cyan>[Player {myPlayerId}] === NETWORK STATS === \n" +
+                     $"Packets Sent: {packetsSent} | Packets Received: {packetsReceived} | From Other Player: {packetsReceivedFromOther}\n" +
+                     $"Other Player Data: {(otherData != null ? "AVAILABLE" : "NULL")}</color>");
+        }
+    }
+    
+    void UpdateInfoText()
+    {
+        if (infoText == null) return;
+        
+        string status = otherData != null ? "CONNECTED" : "WAITING...";
+        string otherPlayerPos = otherData != null ? 
+            $"Other: ({otherData.posX:F1}, {otherData.posY:F1}, {otherData.posZ:F1})" : 
+            "Other: No data";
+        
+        Vector3 myPos = myPlayerObject.transform.position;
+        
+        infoText.text = $"You are Player {myPlayerId} [{status}]\n" +
+                       $"My Pos: ({myPos.x:F1}, {myPos.y:F1}, {myPos.z:F1})\n" +
+                       $"{otherPlayerPos}\n\n" +
+                       $"WASD: Move | Q/E: Rotate\n" +
+                       $"ESC: Exit";
     }
 
     void HandleInput()
@@ -252,22 +354,24 @@ public class GameController : MonoBehaviour
 
         try
         {
+            // myData ya está actualizado en HandleInput(), solo enviamos
             // Serialización con JsonUtility
             string json = JsonUtility.ToJson(myData);
             string message = "PLAYER_DATA:" + json;
 
             byte[] data = Encoding.UTF8.GetBytes(message);
             udpSocket.SendTo(data, serverEndPoint);
+            packetsSent++;
             
-            // Debug cada segundo aprox
-            if (Time.frameCount % 60 == 0)
+            // Debug cada 2 segundos aprox
+            if (Time.frameCount % 120 == 0)
             {
-                Debug.Log($"Sending: {message}");
+                Debug.Log($"[Player {myPlayerId}] Sending MY position: ({myData.posX:F2}, {myData.posY:F2}, {myData.posZ:F2}) | Packets sent: {packetsSent}");
             }
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Send failed: {ex.Message}");
+            Debug.LogError($"[Player {myPlayerId}] Send failed: {ex.Message}");
         }
     }
 
@@ -288,6 +392,8 @@ public class GameController : MonoBehaviour
 
                     if (msg.StartsWith("PLAYER_DATA:"))
                     {
+                        packetsReceived++;
+                        
                         string json = msg.Substring("PLAYER_DATA:".Length);
 
                         // Deserialización
@@ -296,13 +402,26 @@ public class GameController : MonoBehaviour
                         // Solo actualizar si es del otro jugador
                         if (receivedData.playerId != myPlayerId)
                         {
+                            packetsReceivedFromOther++;
+                            
+                            // Primera vez que recibimos datos
+                            if (otherData == null)
+                            {
+                                Debug.Log($"<color=green>[Player {myPlayerId}] ✓ FIRST DATA received from Player {receivedData.playerId}!</color>");
+                            }
+                            
                             otherData = receivedData;
                             
-                            // Debug cada segundo aprox
-                            if (Time.frameCount % 60 == 0)
+                            // Debug periódico cada 3 segundos
+                            if (Time.frameCount % 180 == 0)
                             {
-                                Debug.Log($"Received from Player {receivedData.playerId}: Pos({receivedData.posX:F2}, {receivedData.posY:F2}, {receivedData.posZ:F2})");
+                                Debug.Log($"[Player {myPlayerId}] Received from Player {receivedData.playerId}: Pos({receivedData.posX:F2}, {receivedData.posY:F2}, {receivedData.posZ:F2}) | Total received: {packetsReceivedFromOther}");
                             }
+                        }
+                        else
+                        {
+                            // Esto NO debería pasar - el servidor no debería enviar mis propios datos de vuelta
+                            Debug.LogWarning($"<color=yellow>[Player {myPlayerId}] ⚠ Received my OWN data back! Server should exclude sender. (Packet #{packetsReceived})</color>");
                         }
                     }
                     else if (msg == "SERVER_CLOSED")

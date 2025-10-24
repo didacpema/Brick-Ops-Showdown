@@ -232,6 +232,12 @@ public class WaitingRoomController : MonoBehaviour
 
     void LoadGameScene()
     {
+        // CRÍTICO: Dejar de recibir mensajes aquí
+        // El GameController tomará el control del socket
+        connected = false;
+        
+        Debug.Log("[WaitingRoom] Transferring control to GameController...");
+        
         SceneManager.LoadScene("Game");
     }
 
@@ -267,8 +273,16 @@ public class WaitingRoomController : MonoBehaviour
         }
     }
 
+    void OnDestroy()
+    {
+        // Al destruir este controller, asegurarnos de que no sigue escuchando
+        connected = false;
+        Debug.Log("[WaitingRoom] WaitingRoomController destroyed, stopped listening");
+    }
+
     void OnApplicationQuit()
     {
+        connected = false;
         udpSocket?.Close();
     }
 }

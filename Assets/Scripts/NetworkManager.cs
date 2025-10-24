@@ -30,11 +30,49 @@ namespace BrickOps.Networking
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
+                Debug.Log($"[NetworkManager] Created singleton instance. IsServer: {isServer}");
             }
             else
             {
+                Debug.LogWarning($"[NetworkManager] Duplicate instance destroyed. Keeping original.");
                 Destroy(gameObject);
             }
+        }
+
+        void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Debug.Log("[NetworkManager] Singleton instance destroyed");
+                
+                // Cerrar socket si existe
+                if (udpSocket != null)
+                {
+                    try
+                    {
+                        udpSocket.Close();
+                        Debug.Log("[NetworkManager] UDP Socket closed");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[NetworkManager] Error closing socket: {ex.Message}");
+                    }
+                }
+                
+                Instance = null;
+            }
+        }
+
+        // Método para verificar el estado de la conexión
+        public bool IsConnected()
+        {
+            return udpSocket != null && serverEndPoint != null;
+        }
+
+        // Método para obtener información de debug
+        public string GetDebugInfo()
+        {
+            return $"PlayerID: {myPlayerId} | PlayerName: {playerName} | IsServer: {isServer} | Connected: {IsConnected()}";
         }
     }
 }
