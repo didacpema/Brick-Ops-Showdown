@@ -7,7 +7,8 @@ using TMPro;
 using UnityEngine.SceneManagement;
 using BrickOps.Networking;
 
-[System.Serializable]
+// PlayerData - Classe serializable per a dades del jugador
+[Serializable]
 public class PlayerData
 {
     public int playerId;
@@ -348,6 +349,7 @@ public class GameController : MonoBehaviour
         }
     }
 
+    //Envia les dades del jugador al servidor //
     void SendMyData()
     {
         if (udpSocket == null || serverEndPoint == null) return;
@@ -355,7 +357,7 @@ public class GameController : MonoBehaviour
         try
         {
             // myData ya está actualizado en HandleInput(), solo enviamos
-            // Serialización con JsonUtility
+            // Serialización con JsonUtility //
             string json = JsonUtility.ToJson(myData);
             string message = "PLAYER_DATA:" + json;
 
@@ -396,7 +398,7 @@ public class GameController : MonoBehaviour
                         
                         string json = msg.Substring("PLAYER_DATA:".Length);
 
-                        // Deserialización
+                        // Deserialización //
                         PlayerData receivedData = JsonUtility.FromJson<PlayerData>(json);
 
                         // Solo actualizar si es del otro jugador

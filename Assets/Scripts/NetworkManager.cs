@@ -26,6 +26,7 @@ namespace BrickOps.Networking
 
         void Awake()
         {
+            //patro singleton //
             if (Instance == null)
             {
                 Instance = this;

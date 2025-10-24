@@ -23,6 +23,7 @@ public class ServerSceneController : MonoBehaviour
 
     private Socket udpSocket;
     private byte[] buffer = new byte[2048];
+    // Gestio de multiples jugadors //
     private Dictionary<IPEndPoint, PlayerInfo> players = new Dictionary<IPEndPoint, PlayerInfo>();
     private List<IPEndPoint> clients = new List<IPEndPoint>();
     private bool gameStarted = false;
@@ -47,6 +48,7 @@ public class ServerSceneController : MonoBehaviour
         StartServer();
     }
 
+    // Iniciar el servidor UDP //
     void StartServer()
     {
         udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -87,6 +89,7 @@ public class ServerSceneController : MonoBehaviour
         // Nuevo jugador se conecta (primer mensaje es el nombre)
         if (!players.ContainsKey(sender))
         {
+            //Asignacio de ID de jugador //
             int playerId = clients.Count + 1;
             
             PlayerInfo playerInfo = new PlayerInfo
@@ -174,6 +177,7 @@ public class ServerSceneController : MonoBehaviour
         catch (Exception ex) { Log($"Error sending to {target}: {ex.Message}"); }
     }
 
+    // Metode per enviar missatges a tots els clients, exclou l'emissor //
     void Broadcast(string msg, IPEndPoint exclude = null)
     {
         byte[] data = Encoding.UTF8.GetBytes(msg);
