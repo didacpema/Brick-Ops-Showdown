@@ -65,6 +65,8 @@ public class GameController : MonoBehaviour
 
     void Start()
     {
+        Debug.Log("=== GameController Start ===");
+        
         if (NetworkManager.Instance == null)
         {
             Debug.LogError("NetworkManager not found!");
@@ -73,6 +75,7 @@ public class GameController : MonoBehaviour
         }
 
         myPlayerId = NetworkManager.Instance.myPlayerId;
+        Debug.Log($"My Player ID: {myPlayerId}");
 
         if (myPlayerId == -1)
         {
@@ -91,8 +94,21 @@ public class GameController : MonoBehaviour
             camera1.enabled = true;
             camera2.enabled = false;
 
-            player1Object.GetComponent<Renderer>().material.color = Color.blue;
-            player2Object.GetComponent<Renderer>().material.color = Color.red;
+            // Asegurar que los materiales sean diferentes
+            Renderer myRenderer = player1Object.GetComponent<Renderer>();
+            Renderer otherRenderer = player2Object.GetComponent<Renderer>();
+            
+            if (myRenderer != null && myRenderer.material != null)
+            {
+                myRenderer.material.color = Color.blue;
+                Debug.Log("Player 1 (ME) set to BLUE");
+            }
+            
+            if (otherRenderer != null && otherRenderer.material != null)
+            {
+                otherRenderer.material.color = Color.red;
+                Debug.Log("Player 2 (OTHER) set to RED");
+            }
         }
         else if (myPlayerId == 2)
         {
@@ -103,18 +119,45 @@ public class GameController : MonoBehaviour
             camera1.enabled = false;
             camera2.enabled = true;
 
-            player2Object.GetComponent<Renderer>().material.color = Color.blue;
-            player1Object.GetComponent<Renderer>().material.color = Color.red;
+            // Asegurar que los materiales sean diferentes
+            Renderer myRenderer = player2Object.GetComponent<Renderer>();
+            Renderer otherRenderer = player1Object.GetComponent<Renderer>();
+            
+            if (myRenderer != null && myRenderer.material != null)
+            {
+                myRenderer.material.color = Color.blue;
+                Debug.Log("Player 2 (ME) set to BLUE");
+            }
+            
+            if (otherRenderer != null && otherRenderer.material != null)
+            {
+                otherRenderer.material.color = Color.red;
+                Debug.Log("Player 1 (OTHER) set to RED");
+            }
         }
 
-        infoText.text = $"You are Player {myPlayerId}\nWASD: Move | Q/E: Rotate\nESC: Exit";
+        // Configurar UI (puede ser null si no está asignado)
+        if (infoText != null)
+        {
+            infoText.text = $"You are Player {myPlayerId}\nWASD: Move | Q/E: Rotate\nESC: Exit";
+        }
 
         // Configurar socket
         udpSocket = NetworkManager.Instance.udpSocket;
         serverEndPoint = NetworkManager.Instance.serverEndPoint;
 
+        if (udpSocket == null || serverEndPoint == null)
+        {
+            Debug.LogError("UDP Socket or Server EndPoint is null!");
+            return;
+        }
+        
+        Debug.Log("UDP Socket and Server EndPoint configured successfully");
+
         // Inicializar datos
         myData = new PlayerData(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y);
+        
+        Debug.Log($"GameController initialized for Player {myPlayerId}");
     }
 
     void Update()
@@ -130,7 +173,7 @@ public class GameController : MonoBehaviour
         }
 
         // Actualizar posición del otro jugador (interpolación)
-        if (otherData != null)
+        if (otherData != null && otherPlayerObject != null)
         {
             otherPlayerObject.transform.position = Vector3.Lerp(
                 otherPlayerObject.transform.position,
@@ -152,6 +195,8 @@ public class GameController : MonoBehaviour
 
     void HandleInput()
     {
+        if (myPlayerObject == null) return;
+
         // Movimiento
         Vector3 movement = Vector3.zero;
         if (Input.GetKey(KeyCode.W)) movement += myPlayerObject.transform.forward;
@@ -207,12 +252,18 @@ public class GameController : MonoBehaviour
 
         try
         {
-            // SERIALIZACIÓN con JsonUtility
+            // Serialización con JsonUtility
             string json = JsonUtility.ToJson(myData);
             string message = "PLAYER_DATA:" + json;
 
             byte[] data = Encoding.UTF8.GetBytes(message);
             udpSocket.SendTo(data, serverEndPoint);
+            
+            // Debug cada segundo aprox
+            if (Time.frameCount % 60 == 0)
+            {
+                Debug.Log($"Sending: {message}");
+            }
         }
         catch (Exception ex)
         {
@@ -239,13 +290,19 @@ public class GameController : MonoBehaviour
                     {
                         string json = msg.Substring("PLAYER_DATA:".Length);
 
-                        // DESERIALIZACIÓN
+                        // Deserialización
                         PlayerData receivedData = JsonUtility.FromJson<PlayerData>(json);
 
                         // Solo actualizar si es del otro jugador
                         if (receivedData.playerId != myPlayerId)
                         {
                             otherData = receivedData;
+                            
+                            // Debug cada segundo aprox
+                            if (Time.frameCount % 60 == 0)
+                            {
+                                Debug.Log($"Received from Player {receivedData.playerId}: Pos({receivedData.posX:F2}, {receivedData.posY:F2}, {receivedData.posZ:F2})");
+                            }
                         }
                     }
                     else if (msg == "SERVER_CLOSED")

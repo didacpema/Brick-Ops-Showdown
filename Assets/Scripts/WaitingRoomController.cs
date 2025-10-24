@@ -94,7 +94,7 @@ public class WaitingRoomController : MonoBehaviour
             }
 
             // Enviar nombre como primer mensaje
-            SendMessage(playerName);
+            SendMess(playerName);
 
             connected = true;
             statusText.text = $"Connected to {ip}:6000";
@@ -184,7 +184,7 @@ public class WaitingRoomController : MonoBehaviour
         }
     }
 
-    void SendMessage(string msg)
+    void SendMess(string msg)
     {
         if (udpSocket == null || serverEndPoint == null) return;
 
@@ -206,7 +206,7 @@ public class WaitingRoomController : MonoBehaviour
         string msg = chatInput.text.Trim();
         if (string.IsNullOrEmpty(msg)) return;
 
-        SendMessage(msg);
+        SendMess(msg);
         
         // Mostrar mi propio mensaje
         string myName = NetworkManager.Instance != null ? NetworkManager.Instance.playerName : "Me";
@@ -225,7 +225,7 @@ public class WaitingRoomController : MonoBehaviour
         }
 
         // Enviar señal al servidor para iniciar
-        SendMessage("START_GAME");
+        SendMess("START_GAME");
         playButton.interactable = false;
         AppendChat("Starting game...");
     }

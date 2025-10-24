@@ -116,8 +116,15 @@ public class ServerSceneController : MonoBehaviour
         {
             if (msg.StartsWith("PLAYER_DATA:"))
             {
-                // Reenviar datos de juego a todos menos al emisor
+                // CRÍTICO: Reenviar datos de juego a todos los clientes (incluido el emisor)
+                // Esto permite que cada cliente vea la posición del otro
                 Broadcast(msg, sender);
+                
+                // Debug cada 60 frames
+                if (Time.frameCount % 60 == 0)
+                {
+                    Log($"Relaying game data from Player {players[sender].playerId}");
+                }
             }
             else if (msg == "START_GAME")
             {
@@ -155,7 +162,9 @@ public class ServerSceneController : MonoBehaviour
         // Notificar a todos los clientes
         Broadcast("GAME_START");
         
-        Log("Game session started. Server continues running...");
+        Log("Game session started. Server continues relaying data...");
+        
+        // El servidor NO cambia de escena, se queda aquí retransmitiendo datos
     }
 
     void SendTo(IPEndPoint target, string msg)
