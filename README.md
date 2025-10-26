@@ -1,4 +1,5 @@
-Què s’ha fet i qui ho ha fet?
+Què s’ha fet i qui ho ha fet? 
+
 Game logic: Dídac i Pau
 Serialization: Izan i Adrià
 
