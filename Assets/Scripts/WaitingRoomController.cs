@@ -210,7 +210,7 @@ public class WaitingRoomController : MonoBehaviour
         
         // Mostrar mi propio mensaje
         string myName = NetworkManager.Instance != null ? NetworkManager.Instance.playerName : "Me";
-        AppendChat($"<color=cyan>[{myName}]: {msg}</color>");
+        AppendChat($"<color=blue>[{myName}]: {msg}</color>");
         
         chatInput.text = "";
         chatInput.ActivateInputField();
