@@ -16,7 +16,7 @@ public class MainMenuController : MonoBehaviour
 
     void OnCreateServer()
     {
-        // Crear NetworkManager como servidor
+
         if (NetworkManager.Instance == null)
         {
             GameObject nmObj = new GameObject("NetworkManager");
@@ -30,7 +30,7 @@ public class MainMenuController : MonoBehaviour
 
     void OnJoinClient()
     {
-        // Crear NetworkManager como cliente
+       
         if (NetworkManager.Instance == null)
         {
             GameObject nmObj = new GameObject("NetworkManager");

@@ -65,7 +65,7 @@ public class UDPClient_Select : MonoBehaviour
 
         serverEndPoint = new IPEndPoint(ip, port);
 
-        // Send initial message (name)
+
         SendToServer(playerName);
         connected = true;
         AppendChat($"Connected to {ip}:{port}");
@@ -88,16 +88,14 @@ public class UDPClient_Select : MonoBehaviour
                 {
                     string msg = Encoding.UTF8.GetString(buffer, 0, bytes);
                     
-                    // AÑADE ESTA VERIFICACIÓN
+                    
                     if (msg == "GAME_START")
                     {
                         AppendChat("Game is starting!");
-                        // Pequeño delay para que se vea el mensaje
                         Invoke("LoadGameScene", 1f);
                     }
                     else if (msg.StartsWith("PLAYER_DATA:"))
                     {
-                        // Esto se manejará en la escena Game
                         AppendChat("Receiving game data...");
                     }
                     else
@@ -107,7 +105,7 @@ public class UDPClient_Select : MonoBehaviour
                 }
             }
         }
-        catch (SocketException) { } // Non-blocking read
+        catch (SocketException) { }
     }
 
     void OnSendClicked()
@@ -117,12 +115,10 @@ public class UDPClient_Select : MonoBehaviour
         if (string.IsNullOrEmpty(msg)) return;
 
         SendToServer(msg);
-        // Display our own message locally
         AppendChat($"[{playerName}]: {msg}");
         
         chatInput.text = string.Empty;
         
-        // Return focus to input field
         chatInput.ActivateInputField();
         chatInput.Select();
     }
@@ -150,7 +146,6 @@ public class UDPClient_Select : MonoBehaviour
             if (chatDisplay.text.Length > 5000)
                 chatDisplay.text = chatDisplay.text[^5000..];
             
-            // Force the UI to refresh
             Canvas.ForceUpdateCanvases();
             chatDisplay.ForceMeshUpdate(true);
         }

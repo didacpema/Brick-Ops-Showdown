@@ -20,13 +20,13 @@ namespace BrickOps.Networking
         [HideInInspector] public Socket udpSocket;
         [HideInInspector] public EndPoint serverEndPoint;
 
-        // Evento para notificar mensajes
+
         public delegate void MessageReceivedHandler(string message);
         public event MessageReceivedHandler OnMessageReceived;
 
         void Awake()
         {
-            //patro singleton //
+          
             if (Instance == null)
             {
                 Instance = this;
@@ -46,7 +46,7 @@ namespace BrickOps.Networking
             {
                 Debug.Log("[NetworkManager] Singleton instance destroyed");
                 
-                // Cerrar socket si existe
+           
                 if (udpSocket != null)
                 {
                     try
@@ -64,13 +64,12 @@ namespace BrickOps.Networking
             }
         }
 
-        // Método para verificar el estado de la conexión
         public bool IsConnected()
         {
             return udpSocket != null && serverEndPoint != null;
         }
 
-        // Método para obtener información de debug
+      
         public string GetDebugInfo()
         {
             return $"PlayerID: {myPlayerId} | PlayerName: {playerName} | IsServer: {isServer} | Connected: {IsConnected()}";

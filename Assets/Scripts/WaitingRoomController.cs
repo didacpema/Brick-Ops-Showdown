@@ -38,7 +38,7 @@ public class WaitingRoomController : MonoBehaviour
 
     void Start()
     {
-        // Mostrar panel de conexión, ocultar chat
+
         connectionPanel.SetActive(true);
         chatPanel.SetActive(false);
         playButton.interactable = false;
@@ -48,7 +48,7 @@ public class WaitingRoomController : MonoBehaviour
         playButton.onClick.AddListener(OnPlayGame);
         disconnectButton.onClick.AddListener(OnDisconnect);
 
-        // Enter en el chat envía mensaje
+
         chatInput.onSubmit.AddListener((text) => SendChatMessage());
     }
 
@@ -84,7 +84,7 @@ public class WaitingRoomController : MonoBehaviour
 
             serverEndPoint = new IPEndPoint(ip, 6000);
 
-            // Guardar en NetworkManager
+
             if (NetworkManager.Instance != null)
             {
                 NetworkManager.Instance.serverIP = ip.ToString();
@@ -93,14 +93,13 @@ public class WaitingRoomController : MonoBehaviour
                 NetworkManager.Instance.serverEndPoint = serverEndPoint;
             }
 
-            // Enviar nombre como primer mensaje
             SendMess(playerName);
 
             connected = true;
             statusText.text = $"Connected to {ip}:6000";
             statusText.color = Color.green;
 
-            // Cambiar UI
+
             connectionPanel.SetActive(false);
             chatPanel.SetActive(true);
 
@@ -146,7 +145,7 @@ public class WaitingRoomController : MonoBehaviour
 
         if (msg.StartsWith("PLAYER_ID:"))
         {
-            // Recibir ID del servidor
+
             string idStr = msg.Substring("PLAYER_ID:".Length);
             myPlayerId = int.Parse(idStr);
             
@@ -159,7 +158,7 @@ public class WaitingRoomController : MonoBehaviour
         }
         else if (msg == "READY_TO_START")
         {
-            // Hay 2 jugadores, habilitar botón Play
+
             canStartGame = true;
             playButton.interactable = true;
             playerCountText.text = "Players: 2/2 - Ready!";
@@ -168,7 +167,7 @@ public class WaitingRoomController : MonoBehaviour
         }
         else if (msg == "GAME_START")
         {
-            // El juego ha comenzado
+
             AppendChat("<color=cyan>Starting game...</color>");
             Invoke("LoadGameScene", 1f);
         }
@@ -179,7 +178,7 @@ public class WaitingRoomController : MonoBehaviour
         }
         else
         {
-            // Mensaje de chat normal
+
             AppendChat(msg);
         }
     }
@@ -208,7 +207,7 @@ public class WaitingRoomController : MonoBehaviour
 
         SendMess(msg);
         
-        // Mostrar mi propio mensaje
+
         string myName = NetworkManager.Instance != null ? NetworkManager.Instance.playerName : "Me";
         AppendChat($"<color=blue>[{myName}]: {msg}</color>");
         
@@ -224,7 +223,6 @@ public class WaitingRoomController : MonoBehaviour
             return;
         }
 
-        // Enviar señal al servidor para iniciar
         SendMess("START_GAME");
         playButton.interactable = false;
         AppendChat("Starting game...");
@@ -232,8 +230,6 @@ public class WaitingRoomController : MonoBehaviour
 
     void LoadGameScene()
     {
-        // CRÍTICO: Dejar de recibir mensajes aquí
-        // El GameController tomará el control del socket
         connected = false;
         
         Debug.Log("[WaitingRoom] Transferring control to GameController...");
@@ -260,11 +256,11 @@ public class WaitingRoomController : MonoBehaviour
         {
             chatText.text += msg + "\n";
             
-            // Limitar tamaño
+  
             if (chatText.text.Length > 5000)
                 chatText.text = chatText.text.Substring(chatText.text.Length - 5000);
 
-            // Auto-scroll al final
+
             Canvas.ForceUpdateCanvases();
             if (chatScrollRect != null)
             {
@@ -275,7 +271,7 @@ public class WaitingRoomController : MonoBehaviour
 
     void OnDestroy()
     {
-        // Al destruir este controller, asegurarnos de que no sigue escuchando
+
         connected = false;
         Debug.Log("[WaitingRoom] WaitingRoomController destroyed, stopped listening");
     }

@@ -35,7 +35,6 @@ public class UDPServer_Select : MonoBehaviour
         ReceiveMessages();
     }
 
-    // Añade este método para verificar si hay suficientes jugadores
     void CheckStartGame()
     {
         if (!gameStarted && clients.Count >= MAX_PLAYERS)
@@ -43,10 +42,10 @@ public class UDPServer_Select : MonoBehaviour
             gameStarted = true;
             Log("[Server] Starting game with 2 players!");
             
-            // Notificar a todos los clientes que el juego comienza
+           
             BroadcastGameStart();
             
-            // Cambiar a la escena de juego en el servidor
+
             SceneManager.LoadScene("Game");
         }
     }
@@ -82,7 +81,6 @@ public class UDPServer_Select : MonoBehaviour
         }
         else
         {
-            // Si el mensaje contiene "PLAYER_DATA:", es datos serializados
             if (msg.StartsWith("PLAYER_DATA:"))
             {
                 BroadcastPlayerData(msg, sender);
@@ -125,14 +123,14 @@ public class UDPServer_Select : MonoBehaviour
         }
     }
 
-    // Método para notificar inicio del juego
+
     void BroadcastGameStart()
     {
         string startMsg = "GAME_START";
         Broadcast(startMsg);
     }
 
-    // Método para reenviar datos de jugador
+
     void BroadcastPlayerData(string data, IPEndPoint sender)
     {
         Broadcast(data, sender);

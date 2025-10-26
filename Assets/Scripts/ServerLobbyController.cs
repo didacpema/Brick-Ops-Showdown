@@ -23,12 +23,11 @@ public class ServerSceneController : MonoBehaviour
 
     private Socket udpSocket;
     private byte[] buffer = new byte[2048];
-    // Gestio de multiples jugadors //
+
     private Dictionary<IPEndPoint, PlayerInfo> players = new Dictionary<IPEndPoint, PlayerInfo>();
     private List<IPEndPoint> clients = new List<IPEndPoint>();
     private bool gameStarted = false;
 
-    // Clase para información del jugador
     private class PlayerInfo
     {
         public string name;
@@ -48,7 +47,6 @@ public class ServerSceneController : MonoBehaviour
         StartServer();
     }
 
-    // Iniciar el servidor UDP //
     void StartServer()
     {
         udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -86,10 +84,10 @@ public class ServerSceneController : MonoBehaviour
 
     void ProcessMessage(IPEndPoint sender, string msg)
     {
-        // Nuevo jugador se conecta (primer mensaje es el nombre)
+     
         if (!players.ContainsKey(sender))
         {
-            //Asignacio de ID de jugador //
+
             int playerId = clients.Count + 1;
             
             PlayerInfo playerInfo = new PlayerInfo
@@ -101,29 +99,28 @@ public class ServerSceneController : MonoBehaviour
             players[sender] = playerInfo;
             clients.Add(sender);
             
-            // Enviar ID al jugador
+  
             SendTo(sender, $"PLAYER_ID:{playerId}");
             SendTo(sender, $"Welcome {msg}! You are Player {playerId}");
             
-            // Notificar a todos
+     
             Broadcast($"{msg} joined as Player {playerId}", sender);
             
             Log($"Player {playerId} ({msg}) connected from {sender}");
             UpdatePlayerCount();
             
-            // Verificar si hay 2 jugadores
+         
             CheckPlayersReady();
         }
-        // Mensajes de jugadores ya conectados
+
         else
         {
             if (msg.StartsWith("PLAYER_DATA:"))
             {
-                // CRÍTICO: Reenviar datos de juego a TODOS los clientes EXCEPTO el emisor
-                // El emisor ya tiene sus propios datos, solo necesita los del otro jugador
+             
                 Broadcast(msg, sender);
                 
-                // Debug cada 60 frames
+     
                 if (Time.frameCount % 60 == 0)
                 {
                     Log($"Relaying game data from Player {players[sender].playerId} to other player");
@@ -131,7 +128,7 @@ public class ServerSceneController : MonoBehaviour
             }
             else if (msg == "START_GAME")
             {
-                // Un cliente presionó Play
+          
                 if (clients.Count >= MAX_PLAYERS && !gameStarted)
                 {
                     StartGame();
@@ -139,7 +136,7 @@ public class ServerSceneController : MonoBehaviour
             }
             else
             {
-                // Mensaje de chat
+       
                 string formatted = $"[{players[sender].name}]: {msg}";
                 Broadcast(formatted, sender);
                 Log($"Chat - {formatted}");
@@ -151,7 +148,7 @@ public class ServerSceneController : MonoBehaviour
     {
         if (clients.Count >= MAX_PLAYERS)
         {
-            // Notificar a todos que pueden empezar
+       
             Broadcast("READY_TO_START");
             Log("2 players connected! Clients can now start the game.");
         }
@@ -162,12 +159,11 @@ public class ServerSceneController : MonoBehaviour
         gameStarted = true;
         Log("Game starting!");
         
-        // Notificar a todos los clientes
+
         Broadcast("GAME_START");
         
         Log("Game session started. Server continues relaying data...");
-        
-        // El servidor NO cambia de escena, se queda aquí retransmitiendo datos
+ 
     }
 
     void SendTo(IPEndPoint target, string msg)
@@ -177,7 +173,7 @@ public class ServerSceneController : MonoBehaviour
         catch (Exception ex) { Log($"Error sending to {target}: {ex.Message}"); }
     }
 
-    // Metode per enviar missatges a tots els clients, exclou l'emissor //
+
     void Broadcast(string msg, IPEndPoint exclude = null)
     {
         byte[] data = Encoding.UTF8.GetBytes(msg);
@@ -206,7 +202,7 @@ public class ServerSceneController : MonoBehaviour
         {
             logText.text += $"[{System.DateTime.Now:HH:mm:ss}] {msg}\n";
             
-            // Limitar tamaño del log
+      
             if (logText.text.Length > 5000)
                 logText.text = logText.text.Substring(logText.text.Length - 5000);
             
