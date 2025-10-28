@@ -7,7 +7,7 @@ using TMPro;
 using UnityEngine.SceneManagement;
 using BrickOps.Networking;
 
-
+#region Data Structures
 [Serializable]
 public class PlayerData
 {
@@ -31,9 +31,14 @@ public class PlayerData
         return new Vector3(posX, posY, posZ);
     }
 }
+#endregion
 
 public class GameController : MonoBehaviour
 {
+    //game controller instance
+    public static GameController instance;
+
+    #region Inspector Variables
     [Header("Player Objects")]
     public GameObject player1Object;
     public GameObject player2Object;
@@ -50,24 +55,28 @@ public class GameController : MonoBehaviour
     public float rotateSpeed = 100f;
     public float sendRate = 0.05f;
     public Vector3 cameraOffset = new Vector3(0, 3, -5);
+    #endregion
 
+    #region Private Variables
     private Socket udpSocket;
     private EndPoint serverEndPoint;
     private byte[] buffer = new byte[2048];
 
-    private PlayerData myData;
+    public PlayerData myData;
     private PlayerData otherData;
-    private GameObject myPlayerObject;
+    public GameObject myPlayerObject;
     private GameObject otherPlayerObject;
     private Camera myCamera;
-
+    private InputManager inputManager;
     private int myPlayerId;
     private float nextSendTime = 0f;
     
     private int packetsSent = 0;
     private int packetsReceived = 0;
     private int packetsReceivedFromOther = 0;
+    #endregion
 
+    #region Unity Lifecycle
     void Start()
     {
         Debug.Log("=== GameController Start ===");
@@ -91,7 +100,6 @@ public class GameController : MonoBehaviour
             return;
         }
 
-
         if (player1Object == null || player2Object == null)
         {
             Debug.LogError("Player objects not assigned in inspector!");
@@ -101,6 +109,47 @@ public class GameController : MonoBehaviour
         Debug.Log($"Player1Object: {player1Object.name} at {player1Object.transform.position}");
         Debug.Log($"Player2Object: {player2Object.name} at {player2Object.transform.position}");
 
+        SetupPlayerObjects();
+        SetupUI();
+        SetupNetworking();
+        
+        myData = new PlayerData(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y);
+        inputManager = gameObject.AddComponent<InputManager>();
+        
+        LogInitializationComplete();
+    }
+
+    void Update()
+    {
+        inputManager.HandleInput();
+        ReceiveData();
+
+        if (Time.time >= nextSendTime)
+        {
+            SendMyData();
+            nextSendTime = Time.time + sendRate;
+        }
+
+        UpdateOtherPlayer();
+        UpdateCamera();
+
+        if (infoText != null)
+        {
+            UpdateInfoText();
+        }
+
+        LogNetworkStats();
+    }
+
+    void OnApplicationQuit()
+    {
+        udpSocket?.Close();
+    }
+    #endregion
+
+    #region Initialization
+    void SetupPlayerObjects()
+    {
         if (myPlayerId == 1)
         {
             myPlayerObject = player1Object;
@@ -110,32 +159,13 @@ public class GameController : MonoBehaviour
             camera1.enabled = true;
             camera2.enabled = false;
             
-
             AudioListener listener2 = camera2.GetComponent<AudioListener>();
             if (listener2 != null) listener2.enabled = false;
             
             AudioListener listener1 = camera1.GetComponent<AudioListener>();
             if (listener1 != null) listener1.enabled = true;
 
-
-            Renderer myRenderer = player1Object.GetComponent<Renderer>();
-            Renderer otherRenderer = player2Object.GetComponent<Renderer>();
-            
-            if (myRenderer != null && myRenderer.material != null)
-            {
-
-                myRenderer.material = new Material(myRenderer.material);
-                myRenderer.material.color = Color.blue;
-                Debug.Log("Player 1 (ME) set to BLUE with new material instance");
-            }
-            
-            if (otherRenderer != null && otherRenderer.material != null)
-            {
-
-                otherRenderer.material = new Material(otherRenderer.material);
-                otherRenderer.material.color = Color.red;
-                Debug.Log("Player 2 (OTHER) set to RED with new material instance");
-            }
+            SetPlayerColors(player1Object, player2Object);
         }
         else if (myPlayerId == 2)
         {
@@ -146,40 +176,46 @@ public class GameController : MonoBehaviour
             camera1.enabled = false;
             camera2.enabled = true;
             
-
             AudioListener listener1 = camera1.GetComponent<AudioListener>();
             if (listener1 != null) listener1.enabled = false;
             
             AudioListener listener2 = camera2.GetComponent<AudioListener>();
             if (listener2 != null) listener2.enabled = true;
 
-            Renderer myRenderer = player2Object.GetComponent<Renderer>();
-            Renderer otherRenderer = player1Object.GetComponent<Renderer>();
-            
-            if (myRenderer != null && myRenderer.material != null)
-            {
-
-                myRenderer.material = new Material(myRenderer.material);
-                myRenderer.material.color = Color.blue;
-                Debug.Log("Player 2 (ME) set to BLUE with new material instance");
-            }
-            
-            if (otherRenderer != null && otherRenderer.material != null)
-            {
-
-                otherRenderer.material = new Material(otherRenderer.material);
-                otherRenderer.material.color = Color.red;
-                Debug.Log("Player 1 (OTHER) set to RED with new material instance");
-            }
+            SetPlayerColors(player2Object, player1Object);
         }
+    }
 
+    void SetPlayerColors(GameObject myObject, GameObject otherObject)
+    {
+        Renderer myRenderer = myObject.GetComponent<Renderer>();
+        Renderer otherRenderer = otherObject.GetComponent<Renderer>();
+        
+        if (myRenderer != null && myRenderer.material != null)
+        {
+            myRenderer.material = new Material(myRenderer.material);
+            myRenderer.material.color = Color.blue;
+            Debug.Log($"Player {myPlayerId} (ME) set to BLUE with new material instance");
+        }
+        
+        if (otherRenderer != null && otherRenderer.material != null)
+        {
+            otherRenderer.material = new Material(otherRenderer.material);
+            otherRenderer.material.color = Color.red;
+            Debug.Log($"Other Player set to RED with new material instance");
+        }
+    }
 
+    void SetupUI()
+    {
         if (infoText != null)
         {
             UpdateInfoText();
         }
+    }
 
-
+    void SetupNetworking()
+    {
         udpSocket = NetworkManager.Instance.udpSocket;
         serverEndPoint = NetworkManager.Instance.serverEndPoint;
 
@@ -190,10 +226,10 @@ public class GameController : MonoBehaviour
         }
         
         Debug.Log("UDP Socket and Server EndPoint configured successfully");
+    }
 
-
-        myData = new PlayerData(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y);
-        
+    void LogInitializationComplete()
+    {
         Debug.Log($"GameController initialized for Player {myPlayerId}");
         Debug.Log($"<color=lime>==========================================");
         Debug.Log($"Player {myPlayerId} is ready to send/receive data!");
@@ -204,31 +240,24 @@ public class GameController : MonoBehaviour
         Debug.Log($"Socket connected: {(udpSocket != null ? "YES" : "NO")}");
         Debug.Log($"==========================================</color>");
     }
+    #endregion
 
-    void Update()
+    
+
+    #region Player Updates
+    void UpdateOtherPlayer()
     {
-        HandleInput();
-        ReceiveData();
-
-        if (Time.time >= nextSendTime)
-        {
-            SendMyData();
-            nextSendTime = Time.time + sendRate;
-        }
-
         if (otherData != null && otherPlayerObject != null)
         {
             Vector3 targetPos = otherData.GetPosition();
             Vector3 currentPos = otherPlayerObject.transform.position;
             
-         
             otherPlayerObject.transform.position = Vector3.Lerp(
                 currentPos,
                 targetPos,
                 Time.deltaTime * 10f
             );
 
-  
             Quaternion targetRot = Quaternion.Euler(0, otherData.rotY, 0);
             otherPlayerObject.transform.rotation = Quaternion.Lerp(
                 otherPlayerObject.transform.rotation,
@@ -236,7 +265,6 @@ public class GameController : MonoBehaviour
                 Time.deltaTime * 10f
             );
             
-       
             if (Time.frameCount % 180 == 0)
             {
                 float distance = Vector3.Distance(currentPos, targetPos);
@@ -245,7 +273,6 @@ public class GameController : MonoBehaviour
         }
         else
         {
-          
             if (Time.frameCount % 300 == 0)
             {
                 if (otherData == null)
@@ -254,23 +281,20 @@ public class GameController : MonoBehaviour
                     Debug.LogError($"[Player {myPlayerId}] otherPlayerObject is NULL!");
             }
         }
+    }
 
-      
-        UpdateCamera();
-
-        if (infoText != null)
+    void UpdateCamera()
+    {
+        if (myCamera != null && myPlayerObject != null)
         {
-            UpdateInfoText();
-        }
+            Quaternion rotation = myPlayerObject.transform.rotation;
+            Vector3 targetPos = myPlayerObject.transform.position + rotation * cameraOffset;
 
-        if (Time.frameCount % 300 == 0 && Time.frameCount > 0)
-        {
-            Debug.Log($"<color=blue>[Player {myPlayerId}] === NETWORK STATS === \n" +
-                     $"Packets Sent: {packetsSent} | Packets Received: {packetsReceived} | From Other Player: {packetsReceivedFromOther}\n" +
-                     $"Other Player Data: {(otherData != null ? "AVAILABLE" : "NULL")}</color>");
+            myCamera.transform.position = Vector3.Lerp(myCamera.transform.position, targetPos, Time.deltaTime * 5f);
+            myCamera.transform.LookAt(myPlayerObject.transform.position + Vector3.up);
         }
     }
-    
+
     void UpdateInfoText()
     {
         if (infoText == null) return;
@@ -288,66 +312,15 @@ public class GameController : MonoBehaviour
                        $"WASD: Move | Q/E: Rotate\n" +
                        $"ESC: Exit";
     }
+    #endregion
 
-    void HandleInput()
-    {
-        if (myPlayerObject == null) return;
-
-        Vector3 movement = Vector3.zero;
-        if (Input.GetKey(KeyCode.W)) movement += myPlayerObject.transform.forward;
-        if (Input.GetKey(KeyCode.S)) movement -= myPlayerObject.transform.forward;
-        if (Input.GetKey(KeyCode.A)) movement -= myPlayerObject.transform.right;
-        if (Input.GetKey(KeyCode.D)) movement += myPlayerObject.transform.right;
-
-        if (movement != Vector3.zero)
-        {
-            myPlayerObject.transform.position += movement.normalized * moveSpeed * Time.deltaTime;
-        }
-
-        if (Input.GetKey(KeyCode.Q))
-        {
-            myPlayerObject.transform.Rotate(0, -rotateSpeed * Time.deltaTime, 0);
-        }
-        if (Input.GetKey(KeyCode.E))
-        {
-            myPlayerObject.transform.Rotate(0, rotateSpeed * Time.deltaTime, 0);
-        }
-
-
-        Vector3 pos = myPlayerObject.transform.position;
-        myData.posX = pos.x;
-        myData.posY = pos.y;
-        myData.posZ = pos.z;
-        myData.rotY = myPlayerObject.transform.eulerAngles.y;
-
-  
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            ReturnToMenu();
-        }
-    }
-
-    void UpdateCamera()
-    {
-        if (myCamera != null && myPlayerObject != null)
-        {
-
-            Quaternion rotation = myPlayerObject.transform.rotation;
-            Vector3 targetPos = myPlayerObject.transform.position + rotation * cameraOffset;
-
-            myCamera.transform.position = Vector3.Lerp(myCamera.transform.position, targetPos, Time.deltaTime * 5f);
-            myCamera.transform.LookAt(myPlayerObject.transform.position + Vector3.up);
-        }
-    }
-
-   
+    #region Networking
     void SendMyData()
     {
         if (udpSocket == null || serverEndPoint == null) return;
 
         try
         {
-           
             string json = JsonUtility.ToJson(myData);
             string message = "PLAYER_DATA:" + json;
 
@@ -383,37 +356,7 @@ public class GameController : MonoBehaviour
 
                     if (msg.StartsWith("PLAYER_DATA:"))
                     {
-                        packetsReceived++;
-                        
-                        string json = msg.Substring("PLAYER_DATA:".Length);
-
-                    
-                        PlayerData receivedData = JsonUtility.FromJson<PlayerData>(json);
-
-                 
-                        if (receivedData.playerId != myPlayerId)
-                        {
-                            packetsReceivedFromOther++;
-                            
-                          
-                            if (otherData == null)
-                            {
-                                Debug.Log($"<color=green>[Player {myPlayerId}] ✓ FIRST DATA received from Player {receivedData.playerId}!</color>");
-                            }
-                            
-                            otherData = receivedData;
-                            
-                
-                            if (Time.frameCount % 180 == 0)
-                            {
-                                Debug.Log($"[Player {myPlayerId}] Received from Player {receivedData.playerId}: Pos({receivedData.posX:F2}, {receivedData.posY:F2}, {receivedData.posZ:F2}) | Total received: {packetsReceivedFromOther}");
-                            }
-                        }
-                        else
-                        {
-                 
-                            Debug.LogWarning($"<color=yellow>[Player {myPlayerId}] ⚠ Received my OWN data back! Server should exclude sender. (Packet #{packetsReceived})</color>");
-                        }
+                        ProcessPlayerData(msg);
                     }
                     else if (msg == "SERVER_CLOSED")
                     {
@@ -426,7 +369,48 @@ public class GameController : MonoBehaviour
         catch (SocketException) { }
     }
 
-    void ReturnToMenu()
+    void ProcessPlayerData(string msg)
+    {
+        packetsReceived++;
+        
+        string json = msg.Substring("PLAYER_DATA:".Length);
+        PlayerData receivedData = JsonUtility.FromJson<PlayerData>(json);
+
+        if (receivedData.playerId != myPlayerId)
+        {
+            packetsReceivedFromOther++;
+            
+            if (otherData == null)
+            {
+                Debug.Log($"<color=green>[Player {myPlayerId}] ✓ FIRST DATA received from Player {receivedData.playerId}!</color>");
+            }
+            
+            otherData = receivedData;
+            
+            if (Time.frameCount % 180 == 0)
+            {
+                Debug.Log($"[Player {myPlayerId}] Received from Player {receivedData.playerId}: Pos({receivedData.posX:F2}, {receivedData.posY:F2}, {receivedData.posZ:F2}) | Total received: {packetsReceivedFromOther}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"<color=yellow>[Player {myPlayerId}] ⚠ Received my OWN data back! Server should exclude sender. (Packet #{packetsReceived})</color>");
+        }
+    }
+
+    void LogNetworkStats()
+    {
+        if (Time.frameCount % 300 == 0 && Time.frameCount > 0)
+        {
+            Debug.Log($"<color=blue>[Player {myPlayerId}] === NETWORK STATS === \n" +
+                     $"Packets Sent: {packetsSent} | Packets Received: {packetsReceived} | From Other Player: {packetsReceivedFromOther}\n" +
+                     $"Other Player Data: {(otherData != null ? "AVAILABLE" : "NULL")}</color>");
+        }
+    }
+    #endregion
+
+    #region Scene Management
+    public void ReturnToMenu()
     {
         if (NetworkManager.Instance != null)
         {
@@ -434,9 +418,5 @@ public class GameController : MonoBehaviour
         }
         SceneManager.LoadScene("MainMenu");
     }
-
-    void OnApplicationQuit()
-    {
-        udpSocket?.Close();
-    }
+    #endregion
 }
