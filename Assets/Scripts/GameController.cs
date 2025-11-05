@@ -6,6 +6,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
 using BrickOps.Networking;
+using BrickOps.Core; // <--- añadido para usar PlayerState
 
 #region Data Structures
 [Serializable]
@@ -62,8 +63,8 @@ public class GameController : MonoBehaviour
     private EndPoint serverEndPoint;
     private byte[] buffer = new byte[2048];
 
-    public PlayerData myData;
-    private PlayerData otherData;
+    public PlayerState myData;        // <- cambiado de PlayerData a PlayerState
+    private PlayerState otherData;    // <- cambiado de PlayerData a PlayerState
     public GameObject myPlayerObject;
     private GameObject otherPlayerObject;
     private Camera myCamera;
@@ -113,7 +114,7 @@ public class GameController : MonoBehaviour
         SetupUI();
         SetupNetworking();
         
-        myData = new PlayerData(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y);
+        myData = new PlayerState(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y); // <- aquí
         inputManager = gameObject.AddComponent<InputManager>();
         
         LogInitializationComplete();
@@ -321,7 +322,7 @@ public class GameController : MonoBehaviour
 
         try
         {
-            string json = JsonUtility.ToJson(myData);
+            string json = myData.ToJson(); // <- aquí
             string message = "PLAYER_DATA:" + json;
 
             byte[] data = Encoding.UTF8.GetBytes(message);
@@ -374,7 +375,7 @@ public class GameController : MonoBehaviour
         packetsReceived++;
         
         string json = msg.Substring("PLAYER_DATA:".Length);
-        PlayerData receivedData = JsonUtility.FromJson<PlayerData>(json);
+        PlayerState receivedData = PlayerState.FromJson(json); // <- aquí
 
         if (receivedData.playerId != myPlayerId)
         {
