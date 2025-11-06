@@ -84,10 +84,9 @@ public class ServerSceneController : MonoBehaviour
 
     void ProcessMessage(IPEndPoint sender, string msg)
     {
-     
+        // Nuevo jugador conectándose
         if (!players.ContainsKey(sender))
         {
-
             int playerId = clients.Count + 1;
             
             PlayerInfo playerInfo = new PlayerInfo
@@ -99,36 +98,43 @@ public class ServerSceneController : MonoBehaviour
             players[sender] = playerInfo;
             clients.Add(sender);
             
-  
             SendTo(sender, $"PLAYER_ID:{playerId}");
             SendTo(sender, $"Welcome {msg}! You are Player {playerId}");
             
-     
             Broadcast($"{msg} joined as Player {playerId}", sender);
             
             Log($"Player {playerId} ({msg}) connected from {sender}");
             UpdatePlayerCount();
             
-         
             CheckPlayersReady();
         }
-
         else
         {
+            // Mensajes de jugadores ya conectados
             if (msg.StartsWith("PLAYER_DATA:"))
             {
-             
+                // Retransmitir posición del jugador
+                Broadcast(msg, sender);
+            }
+            else if (msg.StartsWith("SHOOT_DATA:"))
+            {
+                // ⭐ NUEVO: Retransmitir datos de disparo
                 Broadcast(msg, sender);
                 
-     
+                // Log reducido para no saturar
                 if (Time.frameCount % 60 == 0)
                 {
-                    Log($"Relaying game data from Player {players[sender].playerId} to other player");
+                    Log($"Relaying shoot data from Player {players[sender].playerId}");
                 }
+            }
+            else if (msg.StartsWith("DEATH_DATA:"))
+            {
+                // ⭐ NUEVO: Retransmitir datos de muerte
+                Broadcast(msg, null); // Enviar a TODOS (incluyendo el que murió)
+                Log($"Player death relayed from Player {players[sender].playerId}");
             }
             else if (msg == "START_GAME")
             {
-          
                 if (clients.Count >= MAX_PLAYERS && !gameStarted)
                 {
                     StartGame();
@@ -136,7 +142,7 @@ public class ServerSceneController : MonoBehaviour
             }
             else
             {
-       
+                // Chat genérico
                 string formatted = $"[{players[sender].name}]: {msg}";
                 Broadcast(formatted, sender);
                 Log($"Chat - {formatted}");
@@ -148,7 +154,6 @@ public class ServerSceneController : MonoBehaviour
     {
         if (clients.Count >= MAX_PLAYERS)
         {
-       
             Broadcast("READY_TO_START");
             Log("2 players connected! Clients can now start the game.");
         }
@@ -159,11 +164,9 @@ public class ServerSceneController : MonoBehaviour
         gameStarted = true;
         Log("Game starting!");
         
-
         Broadcast("GAME_START");
         
         Log("Game session started. Server continues relaying data...");
- 
     }
 
     void SendTo(IPEndPoint target, string msg)
@@ -172,7 +175,6 @@ public class ServerSceneController : MonoBehaviour
         try { udpSocket.SendTo(data, target); }
         catch (Exception ex) { Log($"Error sending to {target}: {ex.Message}"); }
     }
-
 
     void Broadcast(string msg, IPEndPoint exclude = null)
     {
@@ -202,7 +204,6 @@ public class ServerSceneController : MonoBehaviour
         {
             logText.text += $"[{System.DateTime.Now:HH:mm:ss}] {msg}\n";
             
-      
             if (logText.text.Length > 5000)
                 logText.text = logText.text.Substring(logText.text.Length - 5000);
             

@@ -22,7 +22,6 @@ namespace BrickOps.Networking
 
 
         public delegate void MessageReceivedHandler(string message);
-        public event MessageReceivedHandler OnMessageReceived;
 
         void Awake()
         {

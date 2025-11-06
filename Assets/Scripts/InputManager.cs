@@ -4,64 +4,79 @@ public class InputManager : MonoBehaviour
 {
     #region Private Variables
     private GameController gameController;
+    private GameObject playerObject;
     private Rigidbody rb;
+    private WeaponController weaponController;
     
     [Header("Mouse Settings")]
     public float mouseSensitivity = 2f;
     private float mouseX = 0f;
+    
+    private bool initialized = false;
     #endregion
 
-    #region Unity Lifecycle
-    void Start()
+    #region Initialization
+    /// <summary>
+    /// Inicializa el InputManager con referencias del GameController
+    /// </summary>
+    public void Initialize(GameController controller, GameObject player)
     {
-        gameController = GetComponent<GameController>();
-        if (gameController == null)
-        {
-            Debug.LogError("GameController not found on this GameObject!");
-        }
+        gameController = controller;
+        playerObject = player;
         
-        // Obtener el Rigidbody del player object
-        if (gameController != null && gameController.myPlayerObject != null)
+        if (playerObject == null)
         {
-            rb = gameController.myPlayerObject.GetComponent<Rigidbody>();
-            if (rb == null)
+            Debug.LogError("InputManager: playerObject is null!");
+            return;
+        }
+
+        // Obtener o añadir Rigidbody
+        rb = playerObject.GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            Debug.LogError("InputManager: Rigidbody not found! Adding one...");
+            rb = playerObject.AddComponent<Rigidbody>();
+            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        }
+
+        // Obtener WeaponController
+        weaponController = playerObject.GetComponent<WeaponController>();
+        if (weaponController == null)
+        {
+            Debug.LogWarning("InputManager: WeaponController not found on player!");
+        }
+        else
+        {
+            // Inicializar el arma con la cámara principal
+            Camera cam = (gameController != null && gameController.mainCamera != null) ? gameController.mainCamera : Camera.main;
+            if (cam != null)
             {
-                Debug.LogError("Rigidbody not found on myPlayerObject! Adding one...");
-                rb = gameController.myPlayerObject.AddComponent<Rigidbody>();
-                rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+                weaponController.InitializeForLocalPlayer(cam);
             }
         }
-        
-        // Bloquear y ocultar el cursor
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+
+        initialized = true;
+        Debug.Log("✓ InputManager initialized (with shooting)");
     }
     #endregion
 
     #region Input Handling
     public void HandleInput()
     {
-        if (gameController == null || gameController.myPlayerObject == null || rb == null) return;
+        if (!initialized || playerObject == null || rb == null) return;
 
         HandleMovement();
         HandleRotation();
         HandleJump();
-        UpdateMyData();
-
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            // Desbloquear cursor al salir
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            gameController.ReturnToMenu();
-        }
+        HandleShooting();
     }
 
     void HandleMovement()
     {
         Vector3 movement = Vector3.zero;
-        Transform playerTransform = gameController.myPlayerObject.transform;
+        Transform playerTransform = playerObject.transform;
         
+        // Input WASD
         if (Input.GetKey(KeyCode.W)) movement += playerTransform.forward;
         if (Input.GetKey(KeyCode.S)) movement -= playerTransform.forward;
         if (Input.GetKey(KeyCode.A)) movement -= playerTransform.right;
@@ -69,27 +84,27 @@ public class InputManager : MonoBehaviour
 
         if (movement != Vector3.zero)
         {
-            // Usar velocidad del Rigidbody en lugar de transform.position
+            // Aplicar velocidad horizontal, mantener velocidad vertical
             Vector3 velocity = movement.normalized * gameController.moveSpeed;
-            velocity.y = rb.linearVelocity.y; // Mantener la velocidad vertical (gravedad/salto)
+            velocity.y = rb.linearVelocity.y;
             rb.linearVelocity = velocity;
         }
         else
         {
-            // Detener movimiento horizontal pero mantener velocidad vertical
+            // Detener movimiento horizontal
             rb.linearVelocity = new Vector3(0, rb.linearVelocity.y, 0);
         }
     }
 
     void HandleRotation()
     {
-        Transform playerTransform = gameController.myPlayerObject.transform;
+        Transform playerTransform = playerObject.transform;
         
-        // Rotación con mouse (eje X del mouse rota en Y del jugador)
+        // Rotación con mouse
         mouseX += Input.GetAxis("Mouse X") * mouseSensitivity;
         playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
         
-        // Rotación con teclado (Q/E) - opcional, puedes comentar si solo quieres mouse
+        // Rotación con teclado Q/E (opcional)
         if (Input.GetKey(KeyCode.Q))
         {
             mouseX -= gameController.rotateSpeed * Time.deltaTime;
@@ -110,19 +125,27 @@ public class InputManager : MonoBehaviour
         }
     }
 
-    bool IsGrounded()
+    void HandleShooting()
     {
-        // Raycast para detectar si está en el suelo
-        return Physics.Raycast(gameController.myPlayerObject.transform.position, Vector3.down, 1.1f);
+        if (weaponController == null) return;
+
+        // Disparo con clic izquierdo o botón izquierdo del mouse
+        if (Input.GetMouseButton(0)) // Mantener presionado para automático
+        {
+            weaponController.TryShoot();
+        }
+        
+        // O usar GetMouseButtonDown para semi-automático
+        // if (Input.GetMouseButtonDown(0))
+        // {
+        //     weaponController.TryShoot();
+        // }
     }
 
-    void UpdateMyData()
+    bool IsGrounded()
     {
-        Vector3 pos = gameController.myPlayerObject.transform.position;
-        gameController.myData.posX = pos.x;
-        gameController.myData.posY = pos.y;
-        gameController.myData.posZ = pos.z;
-        gameController.myData.rotY = gameController.myPlayerObject.transform.eulerAngles.y;
+        // Raycast para detectar suelo
+        return Physics.Raycast(playerObject.transform.position, Vector3.down, 1.1f);
     }
     #endregion
 }

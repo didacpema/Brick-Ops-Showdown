@@ -168,7 +168,7 @@ public class WaitingRoomController : MonoBehaviour
         else if (msg == "GAME_START")
         {
 
-            AppendChat("<color=cyan>Starting game...</color>");
+            AppendChat("<color=blue>Starting game...</color>");
             Invoke("LoadGameScene", 1f);
         }
         else if (msg == "SERVER_CLOSED")

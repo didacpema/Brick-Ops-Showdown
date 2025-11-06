@@ -1,13 +1,14 @@
-using UnityEngine;
+using UnityEngine;  
+using BrickOps.Core;
 
 [System.Serializable]
 public class GameState
 {
-    public PlayerData player1;
-    public PlayerData player2;
+    public PlayerState player1;
+    public PlayerState player2;
     public float gameTime;
     
-    public GameState(PlayerData p1, PlayerData p2, float time)
+    public GameState(PlayerState p1, PlayerState p2, float time)
     {
         player1 = p1;
         player2 = p2;

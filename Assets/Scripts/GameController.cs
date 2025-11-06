@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -6,56 +7,34 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
 using BrickOps.Networking;
-using BrickOps.Core; // <--- añadido para usar PlayerState
-
-#region Data Structures
-[Serializable]
-public class PlayerData
-{
-    public int playerId;
-    public float posX;
-    public float posY;
-    public float posZ;
-    public float rotY;
-
-    public PlayerData(int id, Vector3 pos, float rotation)
-    {
-        playerId = id;
-        posX = pos.x;
-        posY = pos.y;
-        posZ = pos.z;
-        rotY = rotation;
-    }
-
-    public Vector3 GetPosition()
-    {
-        return new Vector3(posX, posY, posZ);
-    }
-}
-#endregion
+using BrickOps.Core;
 
 public class GameController : MonoBehaviour
 {
-    //game controller instance
     public static GameController instance;
 
     #region Inspector Variables
-    [Header("Player Objects")]
-    public GameObject player1Object;
-    public GameObject player2Object;
+    [Header("Prefabs")]
+    [Tooltip("Arrastra aquí el prefab del jugador")]
+    public GameObject playerPrefab;
 
-    [Header("Cameras")]
-    public Camera camera1;
-    public Camera camera2;
+    [Header("Spawn Points")]
+    [Tooltip("Posiciones de spawn para cada jugador")]
+    public Transform[] spawnPoints;
+
+    [Header("Camera")]
+    [Tooltip("Cámara principal que seguirá a MI jugador")]
+    public Camera mainCamera;
 
     [Header("UI")]
     public TMP_Text infoText;
+    public TMP_Text killFeedText; // Nuevo: feed de kills
 
     [Header("Settings")]
     public float moveSpeed = 5f;
     public float rotateSpeed = 100f;
     public float sendRate = 0.05f;
-    public Vector3 cameraOffset = new Vector3(0, 3, -5);
+    public Vector3 cameraOffset = new Vector3(0, 2, -3);
     #endregion
 
     #region Private Variables
@@ -63,25 +42,44 @@ public class GameController : MonoBehaviour
     private EndPoint serverEndPoint;
     private byte[] buffer = new byte[2048];
 
-    public PlayerState myData;        // <- cambiado de PlayerData a PlayerState
-    private PlayerState otherData;    // <- cambiado de PlayerData a PlayerState
-    public GameObject myPlayerObject;
-    private GameObject otherPlayerObject;
-    private Camera myCamera;
-    private InputManager inputManager;
+    // MI jugador (el que controlo)
     private int myPlayerId;
+    private GameObject myPlayerObject;
+    private PlayerState myState;
+    private PlayerHealth myHealth;
+    private InputManager inputManager;
+
+    // OTROS jugadores (diccionario: playerId -> GameObject)
+    private Dictionary<int, GameObject> otherPlayers = new Dictionary<int, GameObject>();
+    private Dictionary<int, PlayerState> otherStates = new Dictionary<int, PlayerState>();
+
     private float nextSendTime = 0f;
     
+    // Estadísticas
     private int packetsSent = 0;
     private int packetsReceived = 0;
-    private int packetsReceivedFromOther = 0;
+    
+    // Kill feed
+    private List<string> killFeedMessages = new List<string>();
+    private const int MAX_KILL_FEED_LINES = 5;
     #endregion
 
     #region Unity Lifecycle
+    void Awake()
+    {
+        if (instance == null)
+        {
+            instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
     void Start()
     {
         Debug.Log("=== GameController Start ===");
-        Debug.Log($"GameController Instance: {GetInstanceID()}");
         
         if (NetworkManager.Instance == null)
         {
@@ -90,7 +88,6 @@ public class GameController : MonoBehaviour
             return;
         }
 
-        Debug.Log($"NetworkManager Info: {NetworkManager.Instance.GetDebugInfo()}");
         myPlayerId = NetworkManager.Instance.myPlayerId;
         Debug.Log($"My Player ID: {myPlayerId}");
 
@@ -101,28 +98,30 @@ public class GameController : MonoBehaviour
             return;
         }
 
-        if (player1Object == null || player2Object == null)
+        if (playerPrefab == null)
         {
-            Debug.LogError("Player objects not assigned in inspector!");
+            Debug.LogError("¡PlayerPrefab no asignado en el Inspector!");
             return;
         }
-        
-        Debug.Log($"Player1Object: {player1Object.name} at {player1Object.transform.position}");
-        Debug.Log($"Player2Object: {player2Object.name} at {player2Object.transform.position}");
 
-        SetupPlayerObjects();
-        SetupUI();
         SetupNetworking();
+        SpawnMyPlayer();
+        SetupInputManager();
+        SetupUI();
+
+        mainCamera = myPlayerObject != null ? myPlayerObject.GetComponentInChildren<Camera>() : mainCamera;
+
         
-        myData = new PlayerState(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y); // <- aquí
-        inputManager = gameObject.AddComponent<InputManager>();
-        
-        LogInitializationComplete();
+        Debug.Log($"<color=lime>Player {myPlayerId} initialized and ready!</color>");
     }
 
     void Update()
     {
-        inputManager.HandleInput();
+        if (inputManager != null)
+        {
+            inputManager.HandleInput();
+        }
+
         ReceiveData();
 
         if (Time.time >= nextSendTime)
@@ -131,15 +130,14 @@ public class GameController : MonoBehaviour
             nextSendTime = Time.time + sendRate;
         }
 
-        UpdateOtherPlayer();
+        UpdateOtherPlayers();
         UpdateCamera();
+        UpdateInfoText();
 
-        if (infoText != null)
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            UpdateInfoText();
+            ReturnToMenu();
         }
-
-        LogNetworkStats();
     }
 
     void OnApplicationQuit()
@@ -149,72 +147,6 @@ public class GameController : MonoBehaviour
     #endregion
 
     #region Initialization
-    void SetupPlayerObjects()
-    {
-        if (myPlayerId == 1)
-        {
-            myPlayerObject = player1Object;
-            otherPlayerObject = player2Object;
-            myCamera = camera1;
-            
-            camera1.enabled = true;
-            camera2.enabled = false;
-            
-            AudioListener listener2 = camera2.GetComponent<AudioListener>();
-            if (listener2 != null) listener2.enabled = false;
-            
-            AudioListener listener1 = camera1.GetComponent<AudioListener>();
-            if (listener1 != null) listener1.enabled = true;
-
-            SetPlayerColors(player1Object, player2Object);
-        }
-        else if (myPlayerId == 2)
-        {
-            myPlayerObject = player2Object;
-            otherPlayerObject = player1Object;
-            myCamera = camera2;
-            
-            camera1.enabled = false;
-            camera2.enabled = true;
-            
-            AudioListener listener1 = camera1.GetComponent<AudioListener>();
-            if (listener1 != null) listener1.enabled = false;
-            
-            AudioListener listener2 = camera2.GetComponent<AudioListener>();
-            if (listener2 != null) listener2.enabled = true;
-
-            SetPlayerColors(player2Object, player1Object);
-        }
-    }
-
-    void SetPlayerColors(GameObject myObject, GameObject otherObject)
-    {
-        Renderer myRenderer = myObject.GetComponent<Renderer>();
-        Renderer otherRenderer = otherObject.GetComponent<Renderer>();
-        
-        if (myRenderer != null && myRenderer.material != null)
-        {
-            myRenderer.material = new Material(myRenderer.material);
-            myRenderer.material.color = Color.blue;
-            Debug.Log($"Player {myPlayerId} (ME) set to BLUE with new material instance");
-        }
-        
-        if (otherRenderer != null && otherRenderer.material != null)
-        {
-            otherRenderer.material = new Material(otherRenderer.material);
-            otherRenderer.material.color = Color.red;
-            Debug.Log($"Other Player set to RED with new material instance");
-        }
-    }
-
-    void SetupUI()
-    {
-        if (infoText != null)
-        {
-            UpdateInfoText();
-        }
-    }
-
     void SetupNetworking()
     {
         udpSocket = NetworkManager.Instance.udpSocket;
@@ -226,117 +158,343 @@ public class GameController : MonoBehaviour
             return;
         }
         
-        Debug.Log("UDP Socket and Server EndPoint configured successfully");
+        Debug.Log("✓ Network configured");
     }
 
-    void LogInitializationComplete()
+    void SpawnMyPlayer()
     {
-        Debug.Log($"GameController initialized for Player {myPlayerId}");
-        Debug.Log($"<color=lime>==========================================");
-        Debug.Log($"Player {myPlayerId} is ready to send/receive data!");
-        Debug.Log($"My Object: {myPlayerObject.name} (Blue) - Instance ID: {myPlayerObject.GetInstanceID()}");
-        Debug.Log($"Other Object: {otherPlayerObject.name} (Red) - Instance ID: {otherPlayerObject.GetInstanceID()}");
-        Debug.Log($"My Material ID: {myPlayerObject.GetComponent<Renderer>().material.GetInstanceID()}");
-        Debug.Log($"Other Material ID: {otherPlayerObject.GetComponent<Renderer>().material.GetInstanceID()}");
-        Debug.Log($"Socket connected: {(udpSocket != null ? "YES" : "NO")}");
-        Debug.Log($"==========================================</color>");
+        Vector3 spawnPosition = GetSpawnPosition(myPlayerId);
+        
+        myPlayerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+        myPlayerObject.name = $"Player_{myPlayerId}_ME";
+
+        Camera cam = myPlayerObject.GetComponentInChildren<Camera>();
+        if (cam != null)
+        {
+            cam.gameObject.SetActive(true);
+            mainCamera = cam;
+        }
+        
+        Renderer renderer = myPlayerObject.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material = new Material(renderer.material);
+            renderer.material.color = Color.blue;
+        }
+
+        Rigidbody rb = myPlayerObject.GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            rb = myPlayerObject.AddComponent<Rigidbody>();
+            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        }
+        WeaponController weapon = myPlayerObject.GetComponent<WeaponController>();
+        if (weapon != null && mainCamera != null)
+        {
+            weapon.InitializeForLocalPlayer(mainCamera);
+        }
+
+        // Inicializar PlayerHealth
+        myHealth = myPlayerObject.GetComponent<PlayerHealth>();
+        if (myHealth == null)
+        {
+            myHealth = myPlayerObject.AddComponent<PlayerHealth>();
+        }
+        myHealth.Initialize(myPlayerId, true);
+
+        myState = new PlayerState(myPlayerId, myPlayerObject.transform.position, myPlayerObject.transform.eulerAngles.y);
+
+        Debug.Log($"✓ Spawned MY player at {spawnPosition}");
+    }
+
+    Vector3 GetSpawnPosition(int playerId)
+    {
+        if (spawnPoints != null && spawnPoints.Length > 0)
+        {
+            int index = (playerId - 1) % spawnPoints.Length;
+            if (spawnPoints[index] != null)
+            {
+                return spawnPoints[index].position;
+            }
+        }
+
+        switch (playerId)
+        {
+            case 1: return new Vector3(-5, 1, 0);
+            case 2: return new Vector3(5, 1, 0);
+            default: return new Vector3(0, 1, playerId * 3);
+        }
+    }
+
+    void SetupInputManager()
+    {
+        inputManager = gameObject.AddComponent<InputManager>();
+        inputManager.Initialize(this, myPlayerObject);
+        
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        
+        Debug.Log("✓ Input manager configured");
+    }
+
+    void SetupUI()
+    {
+        if (infoText != null)
+        {
+            UpdateInfoText();
+        }
+        
+        if (killFeedText != null)
+        {
+            killFeedText.text = "";
+        }
     }
     #endregion
 
-    
-
-    #region Player Updates
-    void UpdateOtherPlayer()
+    #region Player Management
+    void SpawnOtherPlayer(int playerId, Vector3 position, float rotation)
     {
-        if (otherData != null && otherPlayerObject != null)
+        if (otherPlayers.ContainsKey(playerId))
         {
-            Vector3 targetPos = otherData.GetPosition();
-            Vector3 currentPos = otherPlayerObject.transform.position;
-            
-            otherPlayerObject.transform.position = Vector3.Lerp(
-                currentPos,
-                targetPos,
-                Time.deltaTime * 10f
-            );
-
-            Quaternion targetRot = Quaternion.Euler(0, otherData.rotY, 0);
-            otherPlayerObject.transform.rotation = Quaternion.Lerp(
-                otherPlayerObject.transform.rotation,
-                targetRot,
-                Time.deltaTime * 10f
-            );
-            
-            if (Time.frameCount % 180 == 0)
-            {
-                float distance = Vector3.Distance(currentPos, targetPos);
-                Debug.Log($"[Player {myPlayerId}] OTHER player current pos: {currentPos}, target pos: {targetPos}, distance: {distance:F2}");
-            }
+            Debug.LogWarning($"Player {playerId} already exists!");
+            return;
         }
-        else
+
+        GameObject otherPlayer = Instantiate(playerPrefab, position, Quaternion.Euler(0, rotation, 0));
+        otherPlayer.name = $"Player_{playerId}_OTHER";
+
+        Camera cam = otherPlayer.GetComponentInChildren<Camera>();
+        if (cam != null)
         {
-            if (Time.frameCount % 300 == 0)
+            cam.enabled = false;
+            cam.gameObject.SetActive(false);
+        }
+        AudioListener al = otherPlayer.GetComponentInChildren<AudioListener>();
+        if (al != null)
+        {
+            al.enabled = false;
+        }
+
+        Renderer renderer = otherPlayer.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material = new Material(renderer.material);
+            renderer.material.color = Color.red;
+        }
+
+        Rigidbody rb = otherPlayer.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+        }
+
+        // Inicializar PlayerHealth
+        PlayerHealth health = otherPlayer.GetComponent<PlayerHealth>();
+        if (health == null)
+        {
+            health = otherPlayer.AddComponent<PlayerHealth>();
+        }
+        health.Initialize(playerId, false);
+
+        // Desactivar WeaponController para jugadores remotos
+        WeaponController weapon = otherPlayer.GetComponent<WeaponController>();
+        if (weapon != null)
+        {
+            weapon.enabled = false; // No disparan localmente
+        }
+
+        otherPlayers[playerId] = otherPlayer;
+        
+        Debug.Log($"<color=yellow>✓ Spawned OTHER player {playerId} at {position}</color>");
+    }
+
+    void UpdateOtherPlayers()
+    {
+        foreach (var kvp in otherStates)
+        {
+            int playerId = kvp.Key;
+            PlayerState state = kvp.Value;
+
+            if (!otherPlayers.ContainsKey(playerId))
             {
-                if (otherData == null)
-                    Debug.LogWarning($"[Player {myPlayerId}] No data received from other player yet!");
-                if (otherPlayerObject == null)
-                    Debug.LogError($"[Player {myPlayerId}] otherPlayerObject is NULL!");
+                SpawnOtherPlayer(playerId, state.GetPosition(), state.rotY);
+            }
+
+            GameObject otherPlayer = otherPlayers[playerId];
+            if (otherPlayer != null && otherPlayer.activeSelf)
+            {
+                Vector3 targetPos = state.GetPosition();
+                Quaternion targetRot = Quaternion.Euler(0, state.rotY, 0);
+
+                otherPlayer.transform.position = Vector3.Lerp(
+                    otherPlayer.transform.position,
+                    targetPos,
+                    Time.deltaTime * 10f
+                );
+
+                otherPlayer.transform.rotation = Quaternion.Lerp(
+                    otherPlayer.transform.rotation,
+                    targetRot,
+                    Time.deltaTime * 10f
+                );
             }
         }
     }
 
     void UpdateCamera()
     {
-        if (myCamera != null && myPlayerObject != null)
+        if (mainCamera != null && myPlayerObject != null)
         {
             Quaternion rotation = myPlayerObject.transform.rotation;
             Vector3 targetPos = myPlayerObject.transform.position + rotation * cameraOffset;
 
-            myCamera.transform.position = Vector3.Lerp(myCamera.transform.position, targetPos, Time.deltaTime * 5f);
-            myCamera.transform.LookAt(myPlayerObject.transform.position + Vector3.up);
+            mainCamera.transform.position = Vector3.Lerp(
+                mainCamera.transform.position, 
+                targetPos, 
+                Time.deltaTime * 5f
+            );
+            mainCamera.transform.LookAt(myPlayerObject.transform.position + Vector3.up);
         }
     }
 
     void UpdateInfoText()
     {
-        if (infoText == null) return;
-        
-        string status = otherData != null ? "CONNECTED" : "WAITING...";
-        string otherPlayerPos = otherData != null ? 
-            $"Other: ({otherData.posX:F1}, {otherData.posY:F1}, {otherData.posZ:F1})" : 
-            "Other: No data";
-        
+        if (infoText == null || myPlayerObject == null) return;
+
+        string status = otherPlayers.Count > 0 ? $"CONNECTED ({otherPlayers.Count} otros)" : "SOLO";
         Vector3 myPos = myPlayerObject.transform.position;
         
-        infoText.text = $"You are Player {myPlayerId} [{status}]\n" +
-                       $"My Pos: ({myPos.x:F1}, {myPos.y:F1}, {myPos.z:F1})\n" +
-                       $"{otherPlayerPos}\n\n" +
-                       $"WASD: Move | Q/E: Rotate\n" +
-                       $"ESC: Exit";
+        string healthInfo = myHealth != null ? $"HP: {myHealth.GetHealthPercentage() * 100:F0}%" : "";
+        
+        string otherInfo = "";
+        foreach (var kvp in otherStates)
+        {
+            otherInfo += $"\nPlayer {kvp.Key}: ({kvp.Value.posX:F1}, {kvp.Value.posY:F1}, {kvp.Value.posZ:F1})";
+        }
+
+        infoText.text = $"You are Player {myPlayerId} [{status}] {healthInfo}\n" +
+                       $"My Pos: ({myPos.x:F1}, {myPos.y:F1}, {myPos.z:F1})" +
+                       otherInfo + "\n\n" +
+                       $"WASD: Move | Mouse: Look | LClick: Shoot\n" +
+                       $"Space: Jump | ESC: Exit";
+    }
+    #endregion
+
+    #region Shooting System
+    /// <summary>
+    /// Llamado cuando MI jugador dispara e impacta a alguien
+    /// </summary>
+    public void OnPlayerShot(int shooterId, int targetId, float damage, Vector3 hitPoint)
+    {
+        // Enviar el disparo al servidor para que lo retransmita
+        ShootData shootData = new ShootData(shooterId, targetId, damage, hitPoint, targetId != -1);
+        SendShootData(shootData);
+    }
+
+    /// <summary>
+    /// Llamado cuando un jugador muere
+    /// </summary>
+    public void OnPlayerDied(int victimId, int killerId)
+    {
+        AddKillFeedMessage($"Player {killerId} eliminó a Player {victimId}");
+        
+        // Enviar notificación de muerte al servidor
+        DeathData deathData = new DeathData(victimId, killerId);
+        SendDeathData(deathData);
+    }
+
+    /// <summary>
+    /// Solicitar respawn al servidor
+    /// </summary>
+    public void RequestRespawn(int playerId)
+    {
+        Vector3 spawnPos = GetSpawnPosition(playerId);
+        
+        if (myPlayerObject != null)
+        {
+            myPlayerObject.transform.position = spawnPos;
+            myPlayerObject.transform.rotation = Quaternion.identity;
+        }
+        
+        Debug.Log($"[GameController] Player {playerId} respawned at {spawnPos}");
+    }
+
+    void AddKillFeedMessage(string message)
+    {
+        killFeedMessages.Add(message);
+        
+        if (killFeedMessages.Count > MAX_KILL_FEED_LINES)
+        {
+            killFeedMessages.RemoveAt(0);
+        }
+        
+        if (killFeedText != null)
+        {
+            killFeedText.text = string.Join("\n", killFeedMessages);
+        }
     }
     #endregion
 
     #region Networking
     void SendMyData()
     {
-        if (udpSocket == null || serverEndPoint == null) return;
+        if (udpSocket == null || serverEndPoint == null || myState == null) return;
 
         try
         {
-            string json = myData.ToJson(); // <- aquí
+            if (myPlayerObject != null)
+            {
+                myState.UpdateFromTransform(myPlayerObject.transform);
+            }
+
+            string json = myState.ToJson();
             string message = "PLAYER_DATA:" + json;
 
             byte[] data = Encoding.UTF8.GetBytes(message);
             udpSocket.SendTo(data, serverEndPoint);
             packetsSent++;
-
-            if (Time.frameCount % 120 == 0)
-            {
-                Debug.Log($"[Player {myPlayerId}] Sending MY position: ({myData.posX:F2}, {myData.posY:F2}, {myData.posZ:F2}) | Packets sent: {packetsSent}");
-            }
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[Player {myPlayerId}] Send failed: {ex.Message}");
+            Debug.LogError($"Send failed: {ex.Message}");
+        }
+    }
+
+    void SendShootData(ShootData shootData)
+    {
+        if (udpSocket == null || serverEndPoint == null) return;
+
+        try
+        {
+            string json = shootData.ToJson();
+            string message = "SHOOT_DATA:" + json;
+
+            byte[] data = Encoding.UTF8.GetBytes(message);
+            udpSocket.SendTo(data, serverEndPoint);
+            
+            Debug.Log($"<color=orange>[Net] Enviado disparo: Shooter {shootData.shooterId} -> Target {shootData.targetId}</color>");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Send shoot data failed: {ex.Message}");
+        }
+    }
+
+    void SendDeathData(DeathData deathData)
+    {
+        if (udpSocket == null || serverEndPoint == null) return;
+
+        try
+        {
+            string json = deathData.ToJson();
+            string message = "DEATH_DATA:" + json;
+
+            byte[] data = Encoding.UTF8.GetBytes(message);
+            udpSocket.SendTo(data, serverEndPoint);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Send death data failed: {ex.Message}");
         }
     }
 
@@ -359,6 +517,14 @@ public class GameController : MonoBehaviour
                     {
                         ProcessPlayerData(msg);
                     }
+                    else if (msg.StartsWith("SHOOT_DATA:"))
+                    {
+                        ProcessShootData(msg);
+                    }
+                    else if (msg.StartsWith("DEATH_DATA:"))
+                    {
+                        ProcessDeathData(msg);
+                    }
                     else if (msg == "SERVER_CLOSED")
                     {
                         Debug.Log("Server closed");
@@ -375,44 +541,96 @@ public class GameController : MonoBehaviour
         packetsReceived++;
         
         string json = msg.Substring("PLAYER_DATA:".Length);
-        PlayerState receivedData = PlayerState.FromJson(json); // <- aquí
+        PlayerState receivedState = PlayerState.FromJson(json);
 
-        if (receivedData.playerId != myPlayerId)
+        if (receivedState.playerId == myPlayerId)
         {
-            packetsReceivedFromOther++;
-            
-            if (otherData == null)
-            {
-                Debug.Log($"<color=green>[Player {myPlayerId}] ✓ FIRST DATA received from Player {receivedData.playerId}!</color>");
-            }
-            
-            otherData = receivedData;
-            
-            if (Time.frameCount % 180 == 0)
-            {
-                Debug.Log($"[Player {myPlayerId}] Received from Player {receivedData.playerId}: Pos({receivedData.posX:F2}, {receivedData.posY:F2}, {receivedData.posZ:F2}) | Total received: {packetsReceivedFromOther}");
-            }
+            return;
         }
-        else
+
+        if (!otherStates.ContainsKey(receivedState.playerId))
         {
-            Debug.LogWarning($"<color=yellow>[Player {myPlayerId}] ⚠ Received my OWN data back! Server should exclude sender. (Packet #{packetsReceived})</color>");
+            Debug.Log($"<color=green>✓ First data from Player {receivedState.playerId}!</color>");
+        }
+
+        otherStates[receivedState.playerId] = receivedState;
+    }
+
+    void ProcessShootData(string msg)
+    {
+        string json = msg.Substring("SHOOT_DATA:".Length);
+        ShootData shootData = ShootData.FromJson(json);
+
+        Debug.Log($"<color=cyan>[Net] Recibido disparo: Shooter {shootData.shooterId} -> Target {shootData.targetId}</color>");
+
+        // Si YO soy el objetivo, aplicar daño
+        if (shootData.targetId == myPlayerId && myHealth != null)
+        {
+            myHealth.TakeDamage(shootData.damage, shootData.shooterId);
+        }
+
+        // Si el disparo viene de OTRO jugador, reproducir efectos visuales
+        if (shootData.shooterId != myPlayerId && otherPlayers.ContainsKey(shootData.shooterId))
+        {
+            GameObject shooterObject = otherPlayers[shootData.shooterId];
+            WeaponController weapon = shooterObject.GetComponent<WeaponController>();
+            
+            if (weapon != null)
+            {
+                weapon.PlayShootEffect(shootData.GetHitPoint(), shootData.didHit);
+            }
         }
     }
 
-    void LogNetworkStats()
+    void ProcessDeathData(string msg)
     {
-        if (Time.frameCount % 300 == 0 && Time.frameCount > 0)
+        string json = msg.Substring("DEATH_DATA:".Length);
+        DeathData deathData = DeathData.FromJson(json);
+
+        AddKillFeedMessage($"Player {deathData.killerId} eliminó a Player {deathData.victimId}");
+
+        // Si otro jugador murió, desactivar su GameObject
+        if (deathData.victimId != myPlayerId && otherPlayers.ContainsKey(deathData.victimId))
         {
-            Debug.Log($"<color=blue>[Player {myPlayerId}] === NETWORK STATS === \n" +
-                     $"Packets Sent: {packetsSent} | Packets Received: {packetsReceived} | From Other Player: {packetsReceivedFromOther}\n" +
-                     $"Other Player Data: {(otherData != null ? "AVAILABLE" : "NULL")}</color>");
+            GameObject victim = otherPlayers[deathData.victimId];
+            if (victim != null)
+            {
+                victim.SetActive(false);
+                // Se reactivará cuando recibamos su PlayerState después del respawn
+            }
         }
+    }
+    #endregion
+
+    #region Public API
+    public void UpdateMyState(Vector3 position, float rotationY)
+    {
+        if (myState != null)
+        {
+            myState.posX = position.x;
+            myState.posY = position.y;
+            myState.posZ = position.z;
+            myState.rotY = rotationY;
+        }
+    }
+
+    public PlayerState GetMyState()
+    {
+        return myState;
+    }
+
+    public GameObject GetMyPlayerObject()
+    {
+        return myPlayerObject;
     }
     #endregion
 
     #region Scene Management
     public void ReturnToMenu()
     {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         if (NetworkManager.Instance != null)
         {
             Destroy(NetworkManager.Instance.gameObject);
