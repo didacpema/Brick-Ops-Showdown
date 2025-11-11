@@ -84,13 +84,13 @@ public class WaitingRoomController : MonoBehaviour
 
             serverEndPoint = new IPEndPoint(ip, 6000);
 
-
             if (NetworkManager.Instance != null)
             {
                 NetworkManager.Instance.serverIP = ip.ToString();
                 NetworkManager.Instance.playerName = playerName;
                 NetworkManager.Instance.udpSocket = udpSocket;
                 NetworkManager.Instance.serverEndPoint = serverEndPoint;
+                NetworkManager.Instance.isServer = false; // ⭐ IMPORTANTE: marcar como cliente
             }
 
             SendMess(playerName);

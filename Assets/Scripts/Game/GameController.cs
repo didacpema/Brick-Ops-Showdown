@@ -52,6 +52,18 @@ public class GameController : MonoBehaviour
     private float sessionStartTime = 0f;
     #endregion
 
+    #region Private Variables - Server
+    private bool isServerHost = false;
+    private Dictionary<IPEndPoint, PlayerInfo> serverPlayers = new Dictionary<IPEndPoint, PlayerInfo>();
+    private List<IPEndPoint> serverClients = new List<IPEndPoint>();
+    
+    private class PlayerInfo
+    {
+        public string name;
+        public int playerId;
+    }
+    #endregion
+
     #region Unity Lifecycle
     void Awake()
     {
@@ -69,6 +81,14 @@ public class GameController : MonoBehaviour
     {
         Debug.Log("=== GameController Start ===");
         
+        // Verificar si somos servidor
+        if (NetworkManager.Instance != null && NetworkManager.Instance.isServer)
+        {
+            isServerHost = true;
+            InitializeAsServerHost();
+            return;
+        }
+        
         if (!ValidateNetworkManager())
             return;
 
@@ -81,15 +101,68 @@ public class GameController : MonoBehaviour
         Debug.Log($"<color=lime>Game initialized successfully! Player {myPlayerId} ready.</color>");
     }
 
+    void InitializeAsServerHost()
+    {
+        Debug.Log("[GameController] Initializing as SERVER HOST");
+        
+        myPlayerId = 1; // Servidor siempre es Player 1
+        
+        // Configurar socket como servidor
+        try
+        {
+            udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            udpSocket.Blocking = false;
+            udpSocket.Bind(new IPEndPoint(IPAddress.Any, NetworkManager.Instance.port));
+            
+            NetworkManager.Instance.udpSocket = udpSocket;
+            Debug.Log($"[GameController] Server listening on port {NetworkManager.Instance.port}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GameController] Failed to start server: {ex.Message}");
+            ReturnToMenu();
+            return;
+        }
+        
+        // Inicializar componentes de juego
+        if (!SetupPlayerManager())
+        {
+            ReturnToMenu();
+            return;
+        }
+        
+        SetupEventListeners();
+        SetupInput();
+        SetupCamera();
+        
+        sessionStartTime = Time.time;
+        lastPacketTime = Time.time;
+        isInitialized = true;
+        
+        Debug.Log("<color=lime>Server host initialized! Playing as Player 1</color>");
+    }
+
     void Update()
     {
         if (!isInitialized)
             return;
 
-        // Red
-        ReceiveNetworkData();
-        SendPeriodicUpdate();
-        CheckConnection();
+        // Red - servidor maneja recepción diferente
+        if (isServerHost)
+        {
+            ReceiveAsServer();
+        }
+        else
+        {
+            ReceiveNetworkData();
+            CheckConnection();
+        }
+        
+        // Enviar actualización solo si hay otros jugadores conectados
+        if (!isServerHost || serverClients.Count > 0)
+        {
+            SendPeriodicUpdate();
+        }
 
         // Jugadores
         if (PlayerManager.Instance != null)
@@ -250,6 +323,139 @@ public class GameController : MonoBehaviour
     }
     #endregion
 
+    #region Server Hosting
+    void ReceiveAsServer()
+    {
+        EndPoint senderEndPoint = new IPEndPoint(IPAddress.Any, 0);
+
+        try
+        {
+            while (udpSocket.Available > 0)
+            {
+                int bytes = udpSocket.ReceiveFrom(receiveBuffer, ref senderEndPoint);
+                if (bytes > 0)
+                {
+                    string message = NetworkProtocol.BytesToMessage(receiveBuffer, bytes);
+                    ProcessServerMessage((IPEndPoint)senderEndPoint, message);
+                    
+                    lastPacketTime = Time.time;
+                    packetsReceived++;
+                }
+            }
+        }
+        catch (SocketException) { }
+    }
+
+    void ProcessServerMessage(IPEndPoint sender, string message)
+    {
+        // Nuevo cliente conectándose
+        if (!serverPlayers.ContainsKey(sender))
+        {
+            string playerName = message.Trim();
+            int newPlayerId = serverClients.Count + 2; // +2 porque el servidor es Player 1
+            
+            PlayerInfo playerInfo = new PlayerInfo
+            {
+                name = playerName,
+                playerId = newPlayerId
+            };
+            
+            serverPlayers[sender] = playerInfo;
+            serverClients.Add(sender);
+            
+            // Enviar ID al cliente
+            SendToClient(sender, NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_ID, newPlayerId.ToString()));
+            SendToClient(sender, $"Welcome {playerName}! You are Player {newPlayerId}");
+            
+            Debug.Log($"[Server] Player {newPlayerId} ({playerName}) connected from {sender}");
+            
+            // Si hay 2 jugadores (servidor + 1 cliente), permitir inicio
+            if (serverClients.Count >= 1)
+            {
+                BroadcastToClients(NetworkProtocol.READY_TO_START);
+                Debug.Log("[Server] Ready to start with 2 players");
+            }
+            
+            return;
+        }
+        
+        // Mensajes de jugadores conectados
+        if (!NetworkProtocol.TryParseMessage(message, out string messageType, out string data))
+        {
+            return;
+        }
+
+        switch (messageType)
+        {
+            case NetworkProtocol.PLAYER_DATA:
+                // Retransmitir posición a otros clientes
+                BroadcastToClients(message, sender);
+                
+                // Procesar también localmente para actualizar jugadores remotos
+                ProcessPlayerData(data);
+                break;
+
+            case NetworkProtocol.SHOOT_DATA:
+                BroadcastToClients(message, sender);
+                ProcessShootData(data);
+                break;
+
+            case NetworkProtocol.DEATH_DATA:
+                BroadcastToClients(message, null); // Enviar a todos
+                ProcessDeathData(data);
+                break;
+
+            case NetworkProtocol.START_GAME:
+                if (serverClients.Count >= 1)
+                {
+                    BroadcastToClients(NetworkProtocol.GAME_START);
+                    Debug.Log("[Server] Game started!");
+                }
+                break;
+
+            default:
+                // Chat u otros mensajes
+                BroadcastToClients(message, sender);
+                break;
+        }
+    }
+
+    void SendToClient(IPEndPoint target, string msg)
+    {
+        if (udpSocket == null) return;
+        
+        try
+        {
+            byte[] data = NetworkProtocol.MessageToBytes(msg);
+            udpSocket.SendTo(data, target);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[Server] Error sending to {target}: {ex.Message}");
+        }
+    }
+
+    void BroadcastToClients(string msg, IPEndPoint exclude = null)
+    {
+        byte[] data = NetworkProtocol.MessageToBytes(msg);
+        
+        foreach (var client in serverClients)
+        {
+            if (exclude != null && client.Equals(exclude)) 
+                continue;
+                
+            try
+            {
+                udpSocket.SendTo(data, client);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Server] Error broadcasting to {client}: {ex.Message}");
+            }
+        }
+    }
+    #endregion
+
     #region Network - Sending
     void SendPeriodicUpdate()
     {
@@ -262,7 +468,7 @@ public class GameController : MonoBehaviour
 
     void SendPlayerData()
     {
-        if (udpSocket == null || serverEndPoint == null)
+        if (udpSocket == null)
             return;
 
         GameObject localPlayer = PlayerManager.Instance?.LocalPlayer;
@@ -271,19 +477,26 @@ public class GameController : MonoBehaviour
 
         try
         {
-            // Crear estado actualizado
             PlayerState state = new PlayerState(
                 myPlayerId,
                 localPlayer.transform.position,
                 localPlayer.transform.eulerAngles.y
             );
 
-            // Construir mensaje
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_DATA, state);
             byte[] data = NetworkProtocol.MessageToBytes(message);
 
-            // Enviar
-            udpSocket.SendTo(data, serverEndPoint);
+            if (isServerHost)
+            {
+                // Como servidor, broadcast a todos los clientes
+                BroadcastToClients(message);
+            }
+            else
+            {
+                // Como cliente, enviar al servidor
+                udpSocket.SendTo(data, serverEndPoint);
+            }
+            
             packetsSent++;
         }
         catch (Exception ex)
@@ -294,7 +507,7 @@ public class GameController : MonoBehaviour
 
     public void SendShootData(int shooterId, int targetId, float damage, Vector3 hitPoint, bool didHit)
     {
-        if (udpSocket == null || serverEndPoint == null)
+        if (udpSocket == null)
             return;
 
         try
@@ -303,7 +516,14 @@ public class GameController : MonoBehaviour
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.SHOOT_DATA, shootData);
             byte[] data = NetworkProtocol.MessageToBytes(message);
 
-            udpSocket.SendTo(data, serverEndPoint);
+            if (isServerHost)
+            {
+                BroadcastToClients(message);
+            }
+            else
+            {
+                udpSocket.SendTo(data, serverEndPoint);
+            }
             
             Debug.Log($"<color=orange>[Net] Sent shoot: {shooterId} -> {targetId}</color>");
         }
@@ -315,7 +535,7 @@ public class GameController : MonoBehaviour
 
     public void SendDeathData(int victimId, int killerId)
     {
-        if (udpSocket == null || serverEndPoint == null)
+        if (udpSocket == null)
             return;
 
         try
@@ -324,7 +544,14 @@ public class GameController : MonoBehaviour
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.DEATH_DATA, deathData);
             byte[] data = NetworkProtocol.MessageToBytes(message);
 
-            udpSocket.SendTo(data, serverEndPoint);
+            if (isServerHost)
+            {
+                BroadcastToClients(message);
+            }
+            else
+            {
+                udpSocket.SendTo(data, serverEndPoint);
+            }
         }
         catch (Exception ex)
         {
@@ -563,6 +790,12 @@ public class GameController : MonoBehaviour
     void Cleanup()
     {
         isInitialized = false;
+
+        // Notificar a clientes si somos servidor
+        if (isServerHost && serverClients.Count > 0)
+        {
+            BroadcastToClients(NetworkProtocol.SERVER_CLOSED);
+        }
 
         // Cerrar socket
         if (udpSocket != null)
