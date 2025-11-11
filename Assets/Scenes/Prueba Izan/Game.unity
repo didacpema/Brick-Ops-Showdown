@@ -1002,7 +1002,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cameraOffset: {x: 0, y: 3, z: -5}
   cameraFollowSpeed: 5
-  sendRate: 0.05
+  sendRate: 20
   connectionTimeout: 10
 --- !u!4 &1361733977
 Transform:

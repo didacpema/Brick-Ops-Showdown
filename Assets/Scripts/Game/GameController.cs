@@ -26,8 +26,8 @@ public class GameController : MonoBehaviour
 
     [Header("Network Settings")]
     [Tooltip("Tasa de envío de paquetes por segundo")]
-    public float sendRate = 20f; // 20 paquetes/seg = 50ms
-    
+    public float sendRate = 30f; // 30 paquetes/seg = 33.33ms
+
     [Tooltip("Timeout para detectar desconexiones")]
     public float connectionTimeout = 10f;
     #endregion
