@@ -1,4 +1,17 @@
 # 🎬 Guía Completa de Configuración del Animator Controller
+## Sistema Profesional con Animation Layers
+
+## ⚠️ IMPORTANTE: Sistema de Capas (RECOMENDADO)
+
+Esta guía está actualizada para usar **Animation Layers con Avatar Mask**. Este es el sistema PROFESIONAL que permite:
+- ✅ **Aim y Shoot solo afectan brazos y torso** (la parte superior del cuerpo)
+- ✅ **Las piernas continúan con su animación** (caminar, correr, saltar)
+- ✅ **Resultado:** Puedes caminar mientras apuntas, correr mientras disparas, saltar mientras apuntas
+- ✅ **Sin reinicio de animaciones** al cambiar entre estados
+
+Si prefieres el sistema simple (sin capas), ve a la **Sección 10: Sistema Alternativo Sin Capas**.
+
+---
 
 ## 📋 Estados y Parámetros
 
@@ -6,52 +19,744 @@
 - `IsWalking` (Bool) - Indica si el jugador está caminando
 - `IsRunning` (Bool) - Indica si el jugador está corriendo
 - `IsAiming` (Bool) - Indica si el jugador está apuntando
-- `IsGrounded` (Bool) - **NUEVO** - Indica si el jugador está en el suelo (CRÍTICO para salto)
+- `IsGrounded` (Bool) - Indica si el jugador está en el suelo (CRÍTICO para salto)
 - `Jump` (Trigger) - Activa la animación de salto
 - `Shoot` (Trigger) - Activa la animación de disparo
+- `AimBlend` (Float) - **OPCIONAL** - Para blend tree en el aire (0-1)
 
-### **Estados del Animator:**
-1. **ArmatureIdle** - Estado de reposo (sin movimiento)
-2. **ArmatureWalk** - Caminando normal
-3. **ArmatureRun** - Corriendo (con Shift)
-4. **ArmatureJump** - Saltando
-5. **ArmatureShoot** - Disparando
-6. **ArmatureAim** - Apuntando
+### **Animation Layers (2 capas):**
+
+#### **Layer 0: Movement (Base Layer)**
+Controla el **cuerpo completo** - movimiento de piernas y postura base
+- **Mask:** None (cuerpo completo)
+- **Weight:** 1.0
+- **Blending:** Override
+
+**Estados:**
+1. **Idle** - Estado de reposo
+2. **Walk** - Caminando normal
+3. **Run** - Corriendo (con Shift)
+4. **Jump** - Saltando (o "InAir" si usas Blend Tree)
+
+#### **Layer 1: UpperBody**
+Controla **solo brazos y torso** - acciones de combate
+- **Mask:** UpperBodyMask (solo brazos, manos, cabeza, spine)
+- **Weight:** 1.0
+- **Blending:** Override
+
+**Estados:**
+1. **UpperBody_Idle** - Pose neutral de brazos
+2. **UpperBody_Aim** - Apuntando
+3. **UpperBody_Shoot** - Disparando
 
 ---
 
-## 🔀 Transiciones Detalladas
+## 🎭 PASO 1: Crear Avatar Mask (Upper Body Only)
 
-### **1. Entry → ArmatureIdle**
-- **Tipo:** Transición inicial
-- **Condiciones:** Ninguna (automática al iniciar)
-- **Settings:**
-  - Has Exit Time: ✅ Activado
-  - Exit Time: 0
-  - Transition Duration: 0
-  - Interruption Source: None
+### **1.1 Crear el Asset**
+1. En el **Project Panel**, navega a tu carpeta de Assets
+2. Right-click → **Create → Avatar Mask**
+3. Nombra el archivo: `UpperBodyMask`
+
+### **1.2 Configurar la Máscara**
+1. Selecciona `UpperBodyMask` en el Project
+2. En el **Inspector**, verás secciones para Humanoid
+
+### **1.3 Activar Solo Partes Superiores**
+
+**✅ Marcar (Verde = Activo):**
+- ✅ **Body** - Spine, Chest
+- ✅ **Head** - Cabeza y cuello
+- ✅ **Left Arm** - Hombro, brazo, antebrazo, mano izquierda
+- ✅ **Right Arm** - Hombro, brazo, antebrazo, mano derecha
+
+**❌ Desmarcar (Rojo = Inactivo):**
+- ❌ **Root** (Root Motion)
+- ❌ **Left Leg** - Muslo, pierna, pie izquierdo
+- ❌ **Right Leg** - Muslo, pierna, pie derecho
+- ❌ **IK** (si aparece)
+
+### **Visual Reference:**
+```
+    ✅ HEAD
+       |
+    ✅ SPINE ────┬──── ✅ LEFT ARM
+                 │
+                 └──── ✅ RIGHT ARM
+       |
+    ❌ ROOT
+       |
+    ┌──┴──┐
+❌ LEFT ❌ RIGHT
+   LEG    LEG
+```
+
+**⚠️ CRÍTICO:** Si marcas las piernas, las animaciones de aim/shoot afectarán TODO el cuerpo. ¡Asegúrate de que estén DESMARCADAS!
 
 ---
 
-### **2. ArmatureIdle ↔️ ArmatureWalk**
+## 🔀 PASO 2: Configurar Animation Layers
 
-#### **Idle → Walk** (Empezar a caminar)
-- **Condiciones:**
-  - `IsWalking` is **true**
-- **Settings:**
-  - Has Exit Time: ❌ Desactivado
-  - Transition Duration: 0.1 - 0.15 (transición suave)
-  - Interruption Source: Current State
-- **Lógica:** Se activa cuando el jugador presiona WASD
+### **2.1 Abrir Animator Controller**
+1. En el Project, localiza tu `PlayerAnimatorController`
+2. Double-click para abrirlo
+3. Verás la ventana del Animator
 
-#### **Walk → Idle** (Dejar de caminar)
+### **2.2 Configurar Base Layer (Movement)**
+
+#### **Renombrar (Opcional pero Recomendado):**
+1. Click en **"Layers"** (esquina superior izquierda)
+2. Click en "Base Layer"
+3. Renombra a: `Movement`
+
+#### **Mantener Estados Existentes:**
+- ✅ Idle (Armature_Idle o similar)
+- ✅ Walk (Armature_Walk)
+- ✅ Run (Armature_Run)
+- ✅ Jump (Armature_Jump)
+
+#### **Eliminar Estados de Combate:**
+- ❌ **ELIMINAR**: Aim state (mover a UpperBody layer)
+- ❌ **ELIMINAR**: Shoot state (mover a UpperBody layer)
+
+### **2.3 Crear UpperBody Layer**
+
+#### **Crear la Capa:**
+1. En el panel **Layers**, click el botón **"+"**
+2. Nombre: `UpperBody`
+3. Selecciona la nueva capa
+
+#### **Configurar Settings:**
+Click en el ⚙️ (gear icon) de la capa `UpperBody`:
+
+| Setting | Value | Descripción |
+|---------|-------|-------------|
+| **Weight** | `1.0` | Blend completo (máxima influencia) |
+| **Mask** | `UpperBodyMask` | Drag desde Project |
+| **Blending** | `Override` | Sobreescribe base layer |
+| **Sync** | ❌ Unchecked | NO sincronizar con base |
+| **IK Pass** | ✅ Checked | Permite Inverse Kinematics |
+| **Timing** | ❌ Unchecked | Timing independiente |
+
+#### **Asignar el Mask:**
+1. En el campo **"Mask"**, haz drag & drop de `UpperBodyMask` desde el Project
+2. O click en el círculo → Selecciona `UpperBodyMask`
+
+---
+
+## 🏃 PASO 3: Transiciones Movement Layer (Base)
+
+### **Estados en Movement Layer:**
+- `Idle` (default state)
+- `Walk`
+- `Run`
+- `Jump`
+
+### **3.1 Entry → Idle**
+- **Automática** (transición por defecto)
+- Has Exit Time: ✅
+- Exit Time: 0
+- Duration: 0
+
+### **3.2 Idle ↔️ Walk**
+
+#### **Idle → Walk:**
+- **Condición:** `IsWalking = true`
+- Has Exit Time: ❌ No
+- Duration: 0.15s
+- Interruption: Current State
+
+#### **Walk → Idle:**
+- **Condición:** `IsWalking = false`
+- Has Exit Time: ❌ No
+- Duration: 0.15s
+- Interruption: Current State
+
+### **3.3 Walk ↔️ Run**
+
+#### **Walk → Run:**
+- **Condición:** `IsRunning = true`
+- Has Exit Time: ❌ No
+- Duration: 0.1s
+- Interruption: Current State
+
+#### **Run → Walk:**
+- **Condición:** `IsRunning = false`
+- Has Exit Time: ❌ No
+- Duration: 0.15s
+- Interruption: Current State
+
+### **3.4 Any State → Jump**
+
+⚠️ **IMPORTANTE:** Usa **Any State** para permitir saltar desde cualquier estado
+
 - **Condiciones:**
-  - `IsWalking` is **false**
-- **Settings:**
-  - Has Exit Time: ❌ Desactivado
-  - Transition Duration: 0.15 - 0.2 (más suave al parar)
-  - Interruption Source: Current State
-- **Lógica:** Se activa cuando el jugador suelta las teclas
+  - Trigger: `Jump`
+  - `IsGrounded = false` (evita múltiples saltos)
+- Has Exit Time: ❌ No
+- Duration: 0.05s (muy rápida)
+- Interruption: Current State
+- **Can Transition To Self:** ❌ No
+
+### **3.5 Jump → Ground States**
+
+#### **Jump → Idle:**
+- **Condición:** `IsGrounded = true` + `IsWalking = false`
+- Has Exit Time: ❌ No
+- Duration: 0.2s
+- Interruption: Next State
+
+#### **Jump → Walk:**
+- **Condición:** `IsGrounded = true` + `IsWalking = true` + `IsRunning = false`
+- Has Exit Time: ❌ No
+- Duration: 0.15s
+- Interruption: Next State
+
+#### **Jump → Run:**
+- **Condición:** `IsGrounded = true` + `IsRunning = true`
+- Has Exit Time: ❌ No
+- Duration: 0.15s
+- Interruption: Next State
+
+---
+
+## 🎯 PASO 4: Transiciones UpperBody Layer
+
+### **Estados en UpperBody Layer:**
+
+#### **Crear Estados:**
+1. Asegúrate de estar en la capa **UpperBody** (selecciónala en Layers)
+2. Right-click en el grid → **Create State → Empty**
+3. Crea 3 estados:
+
+| Estado | Animation Clip | Loop | Default |
+|--------|---------------|------|---------|
+| `UpperBody_Idle` | Tu idle upper body o empty | ✅ Yes | ✅ Yes |
+| `UpperBody_Aim` | Tu aim animation | ✅ Yes | ❌ No |
+| `UpperBody_Shoot` | Tu shoot animation | ❌ No | ❌ No |
+
+⚠️ **Nota sobre animaciones:**
+- Si no tienes animaciones específicas de upper body, puedes usar las mismas
+- El Avatar Mask se encargará de mostrar solo brazos/torso
+- Considera crear poses separadas para mejor resultado
+
+### **4.1 Entry → UpperBody_Idle**
+- **Automática** (default state)
+
+### **4.2 UpperBody_Idle ↔️ UpperBody_Aim**
+
+#### **Idle → Aim:**
+- **Condición:** `IsAiming = true`
+- Has Exit Time: ❌ No
+- Exit Time: 0
+- Duration: 0.15s (transición suave)
+- Interruption: Current State
+
+#### **Aim → Idle:**
+- **Condición:** `IsAiming = false`
+- Has Exit Time: ❌ No
+- Exit Time: 0
+- Duration: 0.15s
+- Interruption: Current State
+
+### **4.3 UpperBody_Aim → UpperBody_Shoot**
+
+⚠️ **SHOOTING MIENTRAS APUNTA:**
+
+- **Condición:** Trigger `Shoot`
+- Has Exit Time: ❌ No
+- Duration: 0.05s (muy rápida, casi instantánea)
+- Interruption: Current State
+- **Can Transition To Self:** ✅ **SÍ** (permite disparos múltiples)
+
+### **4.4 UpperBody_Shoot → UpperBody_Aim**
+
+**Return to aiming after shooting:**
+
+- **Condición:** `IsAiming = true`
+- Has Exit Time: ✅ **SÍ** (debe terminar el disparo)
+- Exit Time: **0.85 - 0.95** (cerca del final)
+- Duration: 0.1s
+- Interruption: Next State
+- **PRIORIDAD:** Esta debe ser la **PRIMERA** transición desde Shoot
+
+### **4.5 UpperBody_Shoot → UpperBody_Idle**
+
+**Return to idle if not aiming:**
+
+- **Condición:** `IsAiming = false`
+- Has Exit Time: ✅ **SÍ**
+- Exit Time: **0.85 - 0.95**
+- Duration: 0.15s
+- Interruption: Next State
+- **PRIORIDAD:** Segunda transición desde Shoot
+
+---
+
+## ✅ PASO 5: Verificación y Testing
+
+### **5.1 Checklist de Configuración:**
+
+#### **Avatar Mask:**
+- [ ] `UpperBodyMask` creado
+- [ ] ✅ Head, Arms, Spine marcados
+- [ ] ❌ Root, Legs desmarcados
+
+#### **Layers:**
+- [ ] Layer `Movement` existe (o Base Layer)
+  - [ ] Weight: 1.0
+  - [ ] Mask: None
+- [ ] Layer `UpperBody` existe
+  - [ ] Weight: 1.0
+  - [ ] Mask: UpperBodyMask asignado
+  - [ ] Blending: Override
+
+#### **Movement Layer States:**
+- [ ] Idle (default)
+- [ ] Walk
+- [ ] Run
+- [ ] Jump
+- [ ] Transiciones configuradas correctamente
+
+#### **UpperBody Layer States:**
+- [ ] UpperBody_Idle (default)
+- [ ] UpperBody_Aim
+- [ ] UpperBody_Shoot
+- [ ] Transiciones configuradas correctamente
+
+#### **Parameters:**
+- [ ] IsWalking (Bool)
+- [ ] IsRunning (Bool)
+- [ ] IsAiming (Bool)
+- [ ] IsGrounded (Bool)
+- [ ] Jump (Trigger)
+- [ ] Shoot (Trigger)
+- [ ] AimBlend (Float) - opcional
+
+### **5.2 Escenarios de Testing:**
+
+#### **Test 1: Caminar + Apuntar**
+1. ▶️ Play mode
+2. Presiona **W** → El personaje camina
+3. Mantén **Click Derecho** → Los brazos apuntan, las piernas siguen caminando
+4. ✅ **Esperado:** Piernas = Walk animation, Brazos = Aim pose
+
+#### **Test 2: Correr + Apuntar + Disparar**
+1. Presiona **W + Shift** → El personaje corre
+2. Mantén **Click Derecho** → Los brazos apuntan (el personaje deja de correr por restricción)
+3. ✅ **Esperado:** Personaje camina (no corre), brazos apuntan
+4. Click **Click Izquierdo** → Dispara
+5. ✅ **Esperado:** Brazos disparan y vuelven a aim, piernas caminando
+
+#### **Test 3: Saltar + Apuntar en el Aire**
+1. Presiona **Espacio** → El personaje salta
+2. **Mientras está en el aire**, mantén **Click Derecho** → Los brazos apuntan
+3. Suelta **Click Derecho** → Los brazos vuelven a idle
+4. ✅ **Esperado:** Piernas = Jump animation continua, Brazos = Aim → Idle
+
+#### **Test 4: Saltar + Disparar**
+1. Presiona **Espacio** → Salta
+2. **En el aire**, mantén **Click Derecho** + click **Click Izquierdo**
+3. ✅ **Esperado:** Piernas saltando, brazos disparando
+
+#### **Test 5: Idle + Apuntar + Disparar**
+1. Sin moverse, mantén **Click Derecho**
+2. Click **Click Izquierdo** varias veces
+3. ✅ **Esperado:** Cuerpo completo en idle, brazos disparan repetidamente
+
+### **5.3 Debugging en Runtime:**
+
+#### **Abrir Animator Window en Play Mode:**
+1. Con el juego corriendo (▶️)
+2. Selecciona tu Player en Hierarchy
+3. Abre Window → Animation → Animator
+4. Observa:
+   - **Base Layer Progress Bar** (movimiento)
+   - **UpperBody Layer Progress Bar** (combate)
+   - **Parameters Values** en tiempo real
+
+#### **Verificar Layer Blending:**
+1. Mientras juegas, observa el **Animator window**
+2. Los dos layers deben mostrar estados **simultáneamente**:
+   - Movement Layer: Walk/Run/Jump
+   - UpperBody Layer: Aim/Shoot
+3. **IMPORTANTE:** Si solo ves un layer activo, revisa el Weight de UpperBody
+
+#### **Common Issues:**
+
+**❌ Problema: Todo el cuerpo apunta, las piernas no caminan**
+- ✅ Revisa que `UpperBodyMask` tenga las piernas **DESMARCADAS**
+- ✅ Verifica que el mask esté **asignado** en UpperBody Layer
+
+**❌ Problema: Los brazos no apuntan**
+- ✅ Revisa que UpperBody Layer Weight = **1.0**
+- ✅ Verifica que las animaciones de aim estén en **UpperBody Layer**, no en Movement
+- ✅ Comprueba que `IsAiming` se está seteando correctamente en código
+
+**❌ Problema: Animaciones se cortan o se ven raras**
+- ✅ Asegúrate de que las animaciones de upper body tengan keyframes solo para brazos
+- ✅ Si usas animaciones full-body, el mask las filtrará pero puede verse extraño
+- ✅ Considera crear animaciones específicas para upper body
+
+---
+
+## 🎬 PASO 6: Comportamientos Esperados
+
+### **Escenario 1: Movimiento Básico (Sin combate)**
+1. Player presiona **WASD** → `IsWalking = true` → Transición a **Walk**
+2. Player mantiene **Shift** → `IsRunning = true` → Transición a **Run**
+3. Player suelta **Shift** → `IsRunning = false` → Transición a **Walk**
+4. Player suelta **WASD** → `IsWalking = false` → Transición a **Idle**
+5. **UpperBody Layer:** Permanece en `UpperBody_Idle` todo el tiempo
+
+### **Escenario 2: Salto Simple**
+1. Player presiona **Espacio** → Trigger `Jump` + `IsGrounded = false`
+2. **Movement Layer:** Any State → Transición a **Jump**
+3. Player toca el suelo → `IsGrounded = true`
+4. **Depende del input:**
+   - Si no se mueve → Jump → **Idle**
+   - Si presiona WASD → Jump → **Walk**
+   - Si presiona WASD+Shift → Jump → **Run**
+5. **UpperBody Layer:** Permanece en `UpperBody_Idle`
+
+### **Escenario 3: Caminar + Apuntar**
+1. Player presiona **WASD** → **Movement Layer:** Walk
+2. Player mantén **Click Derecho** → `IsAiming = true`
+   - **UpperBody Layer:** UpperBody_Idle → **UpperBody_Aim**
+3. ✨ **Resultado Visual:**
+   - **Piernas:** Animación de caminar (Movement Layer)
+   - **Brazos:** Pose de apuntar (UpperBody Layer Override)
+4. **Zoom de cámara** se aplica (FOV 60 → 40)
+5. **RESTRICCIÓN:** Si presiona Shift, NO corre (código previene `isRunning = true`)
+6. Player suelta **Click Derecho** → `IsAiming = false`
+   - **UpperBody Layer:** UpperBody_Aim → **UpperBody_Idle**
+
+### **Escenario 4: Saltar + Apuntar + Disparar**
+1. Player presiona **Espacio** → **Movement Layer:** Jump
+2. **En el aire**, mantén **Click Derecho** → `IsAiming = true`
+   - **UpperBody Layer:** UpperBody_Idle → **UpperBody_Aim**
+3. ✨ **Resultado:**
+   - **Piernas:** Continúan animación de salto
+   - **Brazos:** Pose de apuntar
+4. Player click **Click Izquierdo** → Trigger `Shoot`
+   - **UpperBody Layer:** UpperBody_Aim → **UpperBody_Shoot**
+5. Animación de disparo termina (Exit Time ~0.9)
+   - **UpperBody Layer:** UpperBody_Shoot → **UpperBody_Aim** (IsAiming = true)
+6. **CRÍTICO:** La animación de jump **NO se reinicia** porque está en otra layer
+7. Player suelta **Click Derecho** → `IsAiming = false`
+   - **UpperBody Layer:** UpperBody_Aim → **UpperBody_Idle**
+   - **Movement Layer:** Jump continúa hasta aterrizar
+
+### **Escenario 5: Disparar Semi-Automático**
+1. Player mantén **Click Derecho** → **UpperBody Layer:** UpperBody_Aim
+2. Player click **Click Izquierdo** → Trigger `Shoot`
+   - **UpperBody Layer:** UpperBody_Aim → **UpperBody_Shoot**
+3. Animación completa (~0.4s cooldown en código)
+4. Vuelve a **UpperBody_Aim** (Exit Time 0.9)
+5. Player puede volver a disparar (semi-automático, no automático)
+6. **WeaponController** maneja el cooldown de 0.4s entre disparos
+
+---
+
+## 🎨 Recomendaciones de Animación
+
+### **Para Movement Layer (Full Body):**
+- **Idle:** Animación sutil (respiración, balance)
+  - Loop: ✅ Yes
+  - Duration: ~2-3 segundos
+  
+- **Walk:** Ciclo natural de caminar
+  - Loop: ✅ Yes
+  - Speed: Normal walking pace
+  
+- **Run:** ~1.5x más rápido que Walk
+  - Loop: ✅ Yes
+  - Speed: Athletic running
+  
+- **Jump:** Secuencia completa
+  - Loop: ❌ No
+  - Fases: Crouch → Launch → Air → Land
+  - Duration: ~0.6-1.0 segundos
+
+### **Para UpperBody Layer (Upper Body Only):**
+- **UpperBody_Idle:** Brazos neutrales
+  - Loop: ✅ Yes
+  - Pose: Brazos relajados al costado o sosteniendo arma baja
+  
+- **UpperBody_Aim:** Pose de apuntar
+  - Loop: ✅ Yes
+  - Pose: Brazos extendidos, arma al frente
+  - Considerar ligero sway para realismo
+  
+- **UpperBody_Shoot:** Retroceso de disparo
+  - Loop: ❌ No
+  - Duration: ~0.3-0.4 segundos
+  - Frames: Ready → Fire → Recoil → Recovery
+
+### **Consejos Profesionales:**
+
+1. **Authoring Tips:**
+   - Crea animaciones de UpperBody con **solo keyframes en brazos/spine**
+   - Las piernas deben estar en "reference pose" o sin keyframes
+   - Esto evita conflictos con el Avatar Mask
+
+2. **Additive Animations (Avanzado):**
+   - Considera usar **Additive Blending** para UpperBody Layer
+   - Permite animaciones más naturales que se "suman" a la base
+   - Requiere configurar animations como Additive Reference en Import Settings
+
+3. **IK (Inverse Kinematics):**
+   - Si usas IK para apuntar (manos siguiendo el arma), activa **IK Pass** en UpperBody Layer
+   - Usa `OnAnimatorIK()` en tu script para controlar hand positions
+
+---
+
+## 🐛 Troubleshooting
+
+### **Problema: Animaciones no cambian**
+- ✅ Verifica que el Animator esté asignado en el GameObject
+- ✅ Comprueba que el Animator Controller esté asignado
+- ✅ Revisa que los nombres de parámetros coincidan exactamente
+- ✅ Asegúrate de que el código llama correctamente a `SetBool()` y `SetTrigger()`
+- ✅ Verifica que ambas layers tengan Weight = 1.0
+
+### **Problema: Todo el cuerpo hace aim, piernas no caminan**
+- ✅ **SOLUCIÓN:** Revisa `UpperBodyMask` - las piernas deben estar **DESMARCADAS** (rojas)
+- ✅ Asegúrate de que el mask esté **asignado** en UpperBody Layer settings
+- ✅ Verifica que Blending = Override (no Additive en este caso)
+
+### **Problema: Los brazos no reaccionan a aim/shoot**
+- ✅ Verifica que UpperBody Layer Weight = **1.0**
+- ✅ Comprueba que las animaciones aim/shoot estén en **UpperBody Layer**, no Movement
+- ✅ Revisa que `IsAiming` y trigger `Shoot` se estén seteando en código
+- ✅ Mira el Animator window en play mode para ver los parameter values
+
+### **Problema: Animaciones se ven raras o glitchy**
+- ✅ Asegúrate de que las animaciones de upper body tengan **solo keyframes para brazos**
+- ✅ Si usas animations full-body, el mask filtrará pero puede causar artifacts
+- ✅ Reduce Transition Duration si las transiciones se ven estiradas
+- ✅ Verifica que no haya keyframes en Root Motion si no lo usas
+
+### **Problema: Disparos muy rápidos o se saltan**
+- ✅ Asegúrate de que **Can Transition To Self** esté ✅ ACTIVADO en UpperBody_Shoot
+- ✅ Verifica que el cooldown en código (0.4s) esté funcionando
+- ✅ Comprueba que usas `Input.GetMouseButtonDown(0)` (no GetMouseButton)
+- ✅ Exit Time en Shoot → Aim debe ser ~0.85-0.95 para completar la animación
+
+### **Problema: No puede disparar mientras salta**
+- ✅ Esto es NORMAL con el sistema de layers - debería funcionar
+- ✅ Verifica que las dos layers estén activas simultáneamente en Animator window
+- ✅ Comprueba que UpperBody Layer no tenga condiciones basadas en IsGrounded
+
+### **Problema: Al disparar mientras camino, vuelve demasiado rápido a Idle**
+- ✅ Asegúrate de que la transición **Shoot → Aim** tenga **PRIORIDAD** sobre Shoot → Idle
+- ✅ Arrastra la transición Shoot → Aim para que esté **PRIMERO** en la lista
+- ✅ Verifica que Exit Time esté cerca de 0.9 (deja terminar la animación)
+
+### **Problema: El personaje corre mientras apunta**
+- ✅ Ya está solucionado en código: `isRunning = Input.GetKey(LeftShift) && !isAiming`
+- ✅ Al mantener Click Derecho, Shift no activará sprint
+- ✅ Esto es intencional para mayor precisión al apuntar
+
+---
+
+## 🗺️ Diagrama del Sistema de Layers
+
+```
+╔═══════════════════════════════════════════════════════════════════╗
+║                         ANIMATOR CONTROLLER                        ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+┌───────────────────────────────────────────────────────────────────┐
+│  LAYER 0: MOVEMENT (Base Layer)                                   │
+│  Mask: None (Full Body) | Weight: 1.0 | Blending: Override        │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│    ┌─────┐  IsWalking  ┌──────┐  IsRunning  ┌─────┐            │
+│    │Idle │ ──────────→ │ Walk │ ──────────→ │ Run │            │
+│    └─────┘ ←────────── └──────┘ ←────────── └─────┘            │
+│       ↕                                                           │
+│   Any State ──[Jump Trigger + !IsGrounded]──→ ┌──────┐          │
+│                                                 │ Jump │          │
+│                   [IsGrounded=true] ────────────┴──────┘          │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+                               │
+                               │ BLENDED WITH
+                               ↓
+┌───────────────────────────────────────────────────────────────────┐
+│  LAYER 1: UPPERBODY                                               │
+│  Mask: UpperBodyMask (Arms+Torso) | Weight: 1.0 | Override       │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│    ┌─────────────┐  IsAiming  ┌──────────────┐                  │
+│    │UpperBody    │ ─────────→ │UpperBody     │                  │
+│    │   _Idle     │ ←───────── │   _Aim       │                  │
+│    └─────────────┘            └──────────────┘                   │
+│                                       │   ↑                       │
+│                                [Shoot]│   │ [Exit Time 0.9]      │
+│                                       ↓   │ [IsAiming=true]      │
+│                              ┌──────────────┐                     │
+│                              │UpperBody     │                     │
+│                              │  _Shoot      │                     │
+│                              └──────────────┘                     │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════
+                        VISUAL RESULT
+═══════════════════════════════════════════════════════════════════
+
+Player walking + aiming:
+
+    Movement Layer (Full Body):     UpperBody Layer (Upper Only):
+    ┌─────────────────────┐         ┌─────────────────────┐
+    │   Walk Animation    │    +    │   Aim Pose          │
+    │                     │         │                     │
+    │      😐             │         │      🎯             │
+    │     ┌┴┐            │         │     ┌┴┐            │
+    │    ┌┘ └┐           │         │    ┌┘ └┐ ← OVERRIDE │
+    │   /│   │\          │         │   /│🔫│\            │
+    │  / │   │ \         │         │  / │   │ \          │
+    │    │   │            │         │    │   │            │
+    │   ┌┘   └┐           │         │   ┌┘   └┐           │
+    │  /       \          │         │  /       \          │
+    │ 👟  👟  (WALKING)   │         │ (mask ignores legs) │
+    └─────────────────────┘         └─────────────────────┘
+              ↓                               ↓
+              └────────── BLENDED ────────────┘
+                          ↓
+              ┌─────────────────────┐
+              │   FINAL RESULT:     │
+              │     😐 🎯           │
+              │    ┌┴┐             │
+              │   /│🔫│\           │
+              │  / │   │ \         │
+              │    │   │            │
+              │   ┌┘   └┐           │
+              │  /       \          │
+              │ 👟  👟  ← Walking! │
+              └─────────────────────┘
+```
+
+---
+
+## 📊 Comparación: Con Layers vs Sin Layers
+
+| Feature | ❌ Sin Layers (Sistema Simple) | ✅ Con Layers (Sistema Profesional) |
+|---------|-------------------------------|-------------------------------------|
+| **Caminar + Apuntar** | Todo el cuerpo apunta, no camina | Piernas caminan, brazos apuntan |
+| **Saltar + Apuntar** | Animación se reinicia al soltar aim | Jump continúa sin reinicio |
+| **Complejidad Setup** | Baja (solo transiciones) | Media (layers + masks) |
+| **Calidad Visual** | Básica | Profesional AAA |
+| **Animaciones Requeridas** | Full body para todo | Upper body separado (mejor) |
+| **Flexibilidad** | Limitada | Alta (fácil añadir gestos) |
+| **Performance** | Igual | Igual (insignificante) |
+
+---
+
+## 💡 Notas Importantes y Tips Avanzados
+
+### **🎯 Sobre Avatar Masks:**
+- **Humanoid Rigs Only:** Avatar Masks solo funcionan con rigs humanoides
+- **Generic Rigs:** Si tu modelo es Generic, necesitas usar Transform Masks (más complejo)
+- **Verificación:** En el Inspector del modelo, debe decir "Rig: Humanoid"
+
+### **🔊 Audio Tips:**
+- Puedes añadir Animation Events en las animaciones de shoot para sincronizar el sonido
+- Coloca el event en el frame exacto del disparo para mejor feedback
+
+### **📐 IK (Inverse Kinematics):**
+Si quieres que las manos sigan el arma con precision:
+```csharp
+void OnAnimatorIK(int layerIndex)
+{
+    if (layerIndex == 1) // UpperBody layer
+    {
+        if (isAiming && weaponTransform != null)
+        {
+            animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 1.0f);
+            animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 1.0f);
+            animator.SetIKPosition(AvatarIKGoal.RightHand, weaponTransform.position);
+            animator.SetIKRotation(AvatarIKGoal.RightHand, weaponTransform.rotation);
+        }
+    }
+}
+```
+
+### **🎨 Additive Layers (Avanzado):**
+Para animaciones más sutiles (respiración, recoil), considera usar **Additive Blending**:
+1. Crea una nueva layer: `Additive_Effects`
+2. Set Blending: **Additive**
+3. Weight: 0.5 - 1.0
+4. Añade animaciones con Reference Pose como base
+
+### **⚡ Optimización:**
+- Usa `Animator.StringToHash()` para parámetros (ya implementado en InputManager)
+- Culling Mode: Always Animate (para multiplayer) o Based On Renderers (single player)
+- Evita `SetTrigger()` en Update si no es necesario
+
+### **🎮 Testing Tips:**
+1. Usa el **Animator window** en Play Mode para ver layers en tiempo real
+2. Activa **Debug Mode** en InputManager para ver logs de parámetros
+3. Prueba todas las combinaciones: Walk+Aim, Run+Shoot, Jump+Aim, etc.
+
+---
+
+## 🚀 Próximos Pasos y Mejoras
+
+### **Implementaciones Sugeridas:**
+
+1. **Reload Animation:**
+   - Añadir parámetro `Reload` (Trigger)
+   - Estado `UpperBody_Reload` en UpperBody Layer
+   - Solo brazos recargan, piernas siguen moviéndose
+
+2. **Hit Reaction:**
+   - Layer adicional: `Hit_Reaction` (Additive)
+   - Animaciones de flinch que se añaden a la animación actual
+
+3. **Melee Attack:**
+   - Estado `UpperBody_Melee` en UpperBody Layer
+   - Trigger `Melee`
+
+4. **Crouch System:**
+   - Parámetro `IsCrouching` (Bool)
+   - Estados: Crouch_Idle, Crouch_Walk en Movement Layer
+   - Aim funciona igual en UpperBody Layer
+
+5. **Weapon Switching:**
+   - Parámetro `WeaponType` (Int)
+   - Blend Tree en UpperBody_Idle basado en arma equipada
+
+---
+
+## ✅ Checklist Final
+
+Antes de dar por terminado el setup:
+
+- [ ] ✅ Avatar Mask creado y configurado correctamente
+- [ ] ✅ UpperBody Layer creada con mask asignado
+- [ ] ✅ Todos los estados de Movement Layer funcionan (Idle, Walk, Run, Jump)
+- [ ] ✅ Todos los estados de UpperBody Layer funcionan (Idle, Aim, Shoot)
+- [ ] ✅ Transiciones configuradas con settings correctos
+- [ ] ✅ Parameters creados en Animator Controller
+- [ ] ✅ Código actualizado (InputManager.cs ya incluye todo)
+- [ ] ✅ Tested: Walk + Aim funciona (piernas caminan, brazos apuntan)
+- [ ] ✅ Tested: Jump + Aim funciona (sin reinicio de animación)
+- [ ] ✅ Tested: Shoot semi-automático funciona
+- [ ] ✅ Camera zoom funciona al apuntar
+- [ ] ✅ Sprint restringido mientras apuntas
+- [ ] ✅ Jump cooldown funciona
+- [ ] ✅ Ground detection precisa (no activa IsGrounded antes de tiempo)
+
+---
+
+**✨ ¡Con este sistema profesional de Animation Layers, tu juego tendrá animaciones al nivel de títulos AAA!**
+
+**🎯 El código en InputManager.cs ya está 100% preparado para este sistema. Solo necesitas configurar el Animator Controller siguiendo esta guía paso a paso.**
+
+**🚀 Happy Animating!**
 
 ---
 

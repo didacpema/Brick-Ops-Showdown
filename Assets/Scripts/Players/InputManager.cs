@@ -5,6 +5,21 @@ using BrickOps.Core;
 /// ✨ Sistema completo y pulido de control del jugador ✨
 /// Gestiona input, movimiento, rotación, salto y animaciones de forma profesional
 /// Optimizado con hashes de parámetros y sistema de estados fluido
+/// 
+/// 🎬 ANIMATOR SETUP:
+/// Este sistema está diseñado para trabajar con Animation Layers:
+/// - Layer 0 (Movement): Controla cuerpo completo (Idle, Walk, Run, Jump)
+/// - Layer 1 (UpperBody): Controla solo brazos/torso con Avatar Mask (Aim, Shoot)
+/// 
+/// Ver ANIMATOR_SETUP_GUIDE.md para configuración completa del Animator Controller
+/// 
+/// ⚡ FEATURES:
+/// - Semi-automatic shooting con cooldown (0.4s)
+/// - Sprint restringido mientras apuntas (más precisión)
+/// - Camera zoom suave al apuntar (FOV 60→40)
+/// - Jump cooldown para prevenir spam
+/// - Ground detection precisa con triple verificación
+/// - AimBlend parameter para Blend Trees opcionales
 /// </summary>
 public class InputManager : MonoBehaviour
 {
