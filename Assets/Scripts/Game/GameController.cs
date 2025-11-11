@@ -42,7 +42,7 @@ public class GameController : MonoBehaviour
 
     #region Private Variables - Game State
     private int myPlayerId = -1;
-    private Camera mainCamera;
+    //public Camera mainCamera;
     private bool isInitialized = false;
     #endregion
 
@@ -133,7 +133,7 @@ public class GameController : MonoBehaviour
         
         SetupEventListeners();
         SetupInput();
-        SetupCamera();
+        //SetupCamera();
         
         sessionStartTime = Time.time;
         lastPacketTime = Time.time;
@@ -236,7 +236,7 @@ public class GameController : MonoBehaviour
         SetupInput();
 
         // Camera
-        SetupCamera();
+        //SetupCamera();
 
         return true;
     }
@@ -307,20 +307,20 @@ public class GameController : MonoBehaviour
         Debug.Log("[GameController] ✓ Input configured");
     }
 
-    void SetupCamera()
-    {
-        if (PlayerManager.Instance?.LocalPlayer != null)
-        {
-            mainCamera = PlayerManager.Instance.LocalPlayer.GetComponentInChildren<Camera>();
+    // void SetupCamera()
+    // {
+    //     if (PlayerManager.Instance?.LocalPlayer != null)
+    //     {
+    //         mainCamera = PlayerManager.Instance.LocalPlayer.GetComponentInChildren<Camera>();
             
-            if (mainCamera == null)
-            {
-                mainCamera = Camera.main;
-            }
-        }
+    //         if (mainCamera == null)
+    //         {
+    //             mainCamera = Camera.main;
+    //         }
+    //     }
 
-        Debug.Log("[GameController] ✓ Camera configured");
-    }
+    //     Debug.Log("[GameController] ✓ Camera configured");
+    // }
     #endregion
 
     #region Server Hosting
@@ -754,20 +754,20 @@ public class GameController : MonoBehaviour
     #region Camera
     void UpdateCamera()
     {
-        if (mainCamera == null || PlayerManager.Instance?.LocalPlayer == null)
-            return;
+        // if (mainCamera == null || PlayerManager.Instance?.LocalPlayer == null)
+        //     return;
 
         GameObject localPlayer = PlayerManager.Instance.LocalPlayer;
         Quaternion rotation = localPlayer.transform.rotation;
         Vector3 targetPos = localPlayer.transform.position + rotation * cameraOffset;
 
-        mainCamera.transform.position = Vector3.Lerp(
-            mainCamera.transform.position,
-            targetPos,
-            Time.deltaTime * cameraFollowSpeed
-        );
+        // mainCamera.transform.position = Vector3.Lerp(
+        //     mainCamera.transform.position,
+        //     targetPos,
+        //     Time.deltaTime * cameraFollowSpeed
+        // );
 
-        mainCamera.transform.LookAt(localPlayer.transform.position + Vector3.up);
+        // mainCamera.transform.LookAt(localPlayer.transform.position + Vector3.up);
     }
     #endregion
 
