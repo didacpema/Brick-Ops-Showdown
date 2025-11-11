@@ -1,3 +1,4 @@
+using BrickOps.Core;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -192,11 +193,8 @@ public class PlayerHealth : MonoBehaviour
         isDead = true;
         Debug.Log($"<color=red>☠ Player {playerId} eliminado por Player {killerId}</color>");
 
-        // Notificar al GameController
-        if (GameController.instance != null)
-        {
-            GameController.instance.OnPlayerDied(playerId, killerId);
-        }
+        // Paso 3: Usar EventManager en lugar de GameController
+        EventManager.Instance?.InvokePlayerDied(playerId, killerId);
 
         // Desactivar el jugador
         gameObject.SetActive(false);
@@ -218,14 +216,11 @@ public class PlayerHealth : MonoBehaviour
         // Reactivar el jugador
         gameObject.SetActive(true);
         
-        // Solicitar respawn al GameController
-        if (GameController.instance != null)
-        {
-            GameController.instance.RequestRespawn(playerId);
-        }
+        // Usar EventManager para respawn
+        EventManager.Instance?.InvokePlayerRespawned(playerId, Vector3.zero);
         
         UpdateHealthBar();
-        Debug.Log($"<color=green>♻ Player {playerId} respawneado</color>");
+        Debug.Log($"<color=green>✓ Player {playerId} respawneado</color>");
     }
     #endregion
 }

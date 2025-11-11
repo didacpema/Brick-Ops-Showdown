@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections;
-
+using BrickOps.Core;    
 /// <summary>
 /// Controla el disparo de armas usando Raycast
 /// Debe estar en el prefab del jugador
@@ -112,7 +112,6 @@ public class WeaponController : MonoBehaviour
     {
         // Efectos locales (sonido, muzzle flash)
         PlayMuzzleFlash();
-        //PlayShootSound();
         
         // Traza de bala
         if (bulletTracer != null && muzzlePoint != null)
@@ -148,7 +147,7 @@ public class WeaponController : MonoBehaviour
 
         // Efectos visuales y sonoros locales
         PlayMuzzleFlash();
-        //PlayShootSound();
+        PlayShootSound();
 
         Vector3 hitPoint;
         if (didHit)
@@ -159,11 +158,11 @@ public class WeaponController : MonoBehaviour
             PlayerHealth targetHealth = hit.collider.GetComponent<PlayerHealth>();
             if (targetHealth != null && targetHealth != playerHealth)
             {
-                // Notificar al GameController para enviar por red
+                // Paso 4: Usar EventManager en lugar de GameController
                 int shooterId = playerHealth != null ? playerHealth.playerId : -1;
                 int targetId = targetHealth.playerId;
                 
-                GameController.instance?.OnPlayerShot(shooterId, targetId, damage, hitPoint);
+                EventManager.Instance?.InvokePlayerHit(shooterId, targetId, damage, hitPoint);
                 
                 Debug.Log($"<color=yellow>¡Impacto! {shooterId} disparó a {targetId} por {damage} daño</color>");
             }
@@ -210,6 +209,11 @@ public class WeaponController : MonoBehaviour
         }
 
         // Añadir dispersión
+        if (spread > 0f)
+        {
+            direction += Random.insideUnitSphere * spread;
+            direction.Normalize();
+        }
 
         return direction;
     }
