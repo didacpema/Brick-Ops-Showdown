@@ -42,8 +42,8 @@ public class GameController : MonoBehaviour
 
     #region Private Variables - Game State
     private int myPlayerId = -1;
-    //public Camera mainCamera;
     private bool isInitialized = false;
+    private InputManager cachedInputManager; // Cache para evitar búsquedas repetidas
     #endregion
 
     #region Private Variables - Stats
@@ -298,8 +298,16 @@ public class GameController : MonoBehaviour
         if (PlayerManager.Instance?.LocalPlayer == null)
             return;
 
-        InputManager inputManager = gameObject.AddComponent<InputManager>();
-        inputManager.Initialize(PlayerManager.Instance.LocalPlayer);
+        // Buscar InputManager en el prefab (ya debería existir)
+        cachedInputManager = PlayerManager.Instance.LocalPlayer.GetComponent<InputManager>();
+        
+        if (cachedInputManager == null)
+        {
+            // Solo si no existe, añadirlo (compatibilidad con prefabs antiguos)
+            Debug.LogWarning("[GameController] InputManager not found in prefab, adding one...");
+            cachedInputManager = PlayerManager.Instance.LocalPlayer.AddComponent<InputManager>();
+            cachedInputManager.Initialize(PlayerManager.Instance.LocalPlayer);
+        }
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -437,6 +445,10 @@ public class GameController : MonoBehaviour
 
     void BroadcastToClients(string msg, IPEndPoint exclude = null)
     {
+        // Verificar que el socket esté disponible antes de intentar enviar
+        if (udpSocket == null)
+            return;
+            
         byte[] data = NetworkProtocol.MessageToBytes(msg);
         
         foreach (var client in serverClients)
@@ -447,6 +459,12 @@ public class GameController : MonoBehaviour
             try
             {
                 udpSocket.SendTo(data, client);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Socket ya cerrado, salir del loop
+                Debug.LogWarning("[Server] Socket already disposed, cannot broadcast");
+                break;
             }
             catch (Exception ex)
             {
@@ -471,16 +489,16 @@ public class GameController : MonoBehaviour
 
         GameObject localPlayer = PlayerManager.Instance?.LocalPlayer;
         if (localPlayer == null)
-            return;        try
+            return;
+
+        try
         {
-            // Obtener InputManager para estados de animación
-            InputManager inputManager = FindFirstObjectByType<InputManager>();
             PlayerState state;
 
-            if (inputManager != null)
+            // Usar InputManager cacheado
+            if (cachedInputManager != null)
             {
-                // Usar el nuevo método que incluye estados de animación
-                state = inputManager.GetCurrentPlayerState(myPlayerId);
+                state = cachedInputManager.GetCurrentPlayerState(myPlayerId);
             }
             else
             {
@@ -497,12 +515,10 @@ public class GameController : MonoBehaviour
 
             if (isServerHost)
             {
-                // Como servidor, broadcast a todos los clientes
                 BroadcastToClients(message);
             }
             else
             {
-                // Como cliente, enviar al servidor
                 udpSocket.SendTo(data, serverEndPoint);
             }
             
@@ -800,10 +816,17 @@ public class GameController : MonoBehaviour
     {
         isInitialized = false;
 
-        // Notificar a clientes si somos servidor
-        if (isServerHost && serverClients.Count > 0)
+        // Notificar a clientes si somos servidor (antes de cerrar el socket)
+        if (isServerHost && serverClients.Count > 0 && udpSocket != null)
         {
-            BroadcastToClients(NetworkProtocol.SERVER_CLOSED);
+            try
+            {
+                BroadcastToClients(NetworkProtocol.SERVER_CLOSED);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Cleanup] Could not notify clients: {ex.Message}");
+            }
         }
 
         // Cerrar socket
@@ -812,6 +835,7 @@ public class GameController : MonoBehaviour
             try
             {
                 udpSocket.Close();
+                udpSocket = null;
             }
             catch (Exception ex)
             {

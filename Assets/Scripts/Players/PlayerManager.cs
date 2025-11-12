@@ -119,56 +119,23 @@ namespace BrickOps.Players
             localPlayerObject = Instantiate(playerPrefab, spawnPos, Quaternion.identity);
             localPlayerObject.name = $"Player_{playerId}_LOCAL";
 
-            ConfigureLocalPlayer(localPlayerObject, playerId);
+            PlayerController controller = localPlayerObject.GetComponent<PlayerController>();
+            if (controller != null)
+            {
+                controller.InitializeAsLocal(playerId);
+                controller.SetVisuals(localPlayerMaterial, localPlayerColor);
+            }
+            else
+            {
+                Debug.LogError("[PlayerManager] PlayerController component missing on prefab! Please add it.");
+                Destroy(localPlayerObject);
+                return null;
+            }
 
-            // Evento
             EventManager.Instance?.InvokePlayerSpawned(playerId, true);
 
             Debug.Log($"[PlayerManager] Local player {playerId} spawned at {spawnPos}");
             return localPlayerObject;
-        }
-
-        void ConfigureLocalPlayer(GameObject player, int playerId)
-        {
-            // Configurar cámara
-            Camera cam = player.GetComponentInChildren<Camera>();
-            if (cam != null)
-            {
-                cam.gameObject.SetActive(true);
-            }
-
-            // Configurar material
-            Renderer renderer = player.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.material = localPlayerMaterial != null 
-                    ? new Material(localPlayerMaterial) 
-                    : new Material(renderer.material);
-                renderer.material.color = localPlayerColor;
-            }
-
-            // Configurar física
-            Rigidbody rb = player.GetComponent<Rigidbody>();
-            if (rb == null)
-            {
-                rb = player.AddComponent<Rigidbody>();
-            }
-            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-
-            // Configurar salud
-            PlayerHealth health = player.GetComponent<PlayerHealth>();
-            if (health == null)
-            {
-                health = player.AddComponent<PlayerHealth>();
-            }
-            health.Initialize(playerId, true);
-
-            // Configurar arma
-            WeaponController weapon = player.GetComponent<WeaponController>();
-            if (weapon != null && cam != null)
-            {
-                weapon.InitializeForLocalPlayer(cam);
-            }
         }
         #endregion
 
@@ -193,72 +160,24 @@ namespace BrickOps.Players
             GameObject remotePlayer = Instantiate(playerPrefab, position, Quaternion.Euler(0, rotation, 0));
             remotePlayer.name = $"Player_{playerId}_REMOTE";
 
-            ConfigureRemotePlayer(remotePlayer, playerId);
+            PlayerController controller = remotePlayer.GetComponent<PlayerController>();
+            if (controller != null)
+            {
+                controller.InitializeAsRemote(playerId);
+                controller.SetVisuals(remotePlayerMaterial, remotePlayerColor);
+            }
+            else
+            {
+                Debug.LogError("[PlayerManager] PlayerController component missing on prefab! Please add it.");
+                Destroy(remotePlayer);
+                return null;
+            }
 
             remotePlayers[playerId] = remotePlayer;
-
-            // Evento
             EventManager.Instance?.InvokePlayerSpawned(playerId, false);
 
             Debug.Log($"[PlayerManager] Remote player {playerId} spawned at {position}");
             return remotePlayer;
-        }
-
-        void ConfigureRemotePlayer(GameObject player, int playerId)
-        {
-            // Desactivar cámara y audio listener
-            Camera cam = player.GetComponentInChildren<Camera>();
-            if (cam != null)
-            {
-                cam.enabled = false;
-                cam.gameObject.SetActive(false);
-            }
-
-            AudioListener listener = player.GetComponentInChildren<AudioListener>();
-            if (listener != null)
-            {
-                listener.enabled = false;
-            }
-
-            // Configurar material
-            Renderer renderer = player.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.material = remotePlayerMaterial != null 
-                    ? new Material(remotePlayerMaterial) 
-                    : new Material(renderer.material);
-                renderer.material.color = remotePlayerColor;
-            }
-
-            // Configurar física como kinematic
-            Rigidbody rb = player.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.isKinematic = true;
-            }
-
-            // Configurar salud
-            PlayerHealth health = player.GetComponent<PlayerHealth>();
-            if (health == null)
-            {
-                health = player.AddComponent<PlayerHealth>();
-            }
-            health.Initialize(playerId, false);            // Desactivar arma local
-            WeaponController weapon = player.GetComponent<WeaponController>();
-            if (weapon != null)
-            {
-                weapon.enabled = false;
-            }
-
-            // Agregar componente de sincronización de animaciones
-            RemotePlayerAnimator remoteAnimator = player.GetComponent<RemotePlayerAnimator>();
-            if (remoteAnimator == null)
-            {
-                remoteAnimator = player.AddComponent<RemotePlayerAnimator>();
-            }
-            remoteAnimator.Initialize();
-
-            Debug.Log($"[PlayerManager] Remote player {playerId} configured with animation sync");
         }
 
         /// <summary>
