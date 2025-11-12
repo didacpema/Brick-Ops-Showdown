@@ -845,5 +845,27 @@ public class GameController : MonoBehaviour
                $"Rate: {packetsPerSecond:F1} pps | " +
                $"Players: {PlayerManager.Instance?.RemotePlayerCount ?? 0}";
     }
+
+    /// <summary>
+    /// Obtiene estadísticas de red para mostrar en UI.
+    /// pingMs devuelve -1 si aún no se han recibido paquetes (N/A)
+    /// </summary>
+    public void GetNetworkStats(out int pingMs, out int sent, out int received, out float packetsPerSecond)
+    {
+        float sessionTime = Time.time - sessionStartTime;
+        packetsPerSecond = packetsReceived / Mathf.Max(1f, sessionTime);
+        sent = packetsSent;
+        received = packetsReceived;
+
+        // Si aún no hemos recibido ningún paquete, no hay base para latencia
+        if (packetsReceived <= 0)
+        {
+            pingMs = -1; // N/A
+        }
+        else
+        {
+            pingMs = Mathf.Max(0, (int)((Time.time - lastPacketTime) * 1000f));
+        }
+    }
     #endregion
 }

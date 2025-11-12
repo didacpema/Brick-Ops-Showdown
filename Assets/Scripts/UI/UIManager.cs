@@ -40,6 +40,11 @@ namespace BrickOps.UI
         private float lastFPSUpdate = 0f;
         private int frameCount = 0;
         private float fps = 0f;
+        // ===== Network HUD throttling =====
+        private float lastNetUpdateTime = 0f;
+        private float netUpdateInterval = 1f; // actualizar cada 1s
+        private string cachedNetLine = "NET: N/A";
+        private int smoothedPing = -1;
         #endregion
 
         #region Nested Classes
@@ -173,8 +178,30 @@ namespace BrickOps.UI
             Vector3 pos = localPlayer.transform.position;
             string status = otherPlayers > 0 ? $"CONNECTED ({otherPlayers} other)" : "SOLO";
 
+            // Actualizar stats de red solo cada intervalo
+            if (GameController.Instance != null && Time.time - lastNetUpdateTime >= netUpdateInterval)
+            {
+                GameController.Instance.GetNetworkStats(out int pingMs, out int sent, out int recv, out float pps);
+                // Suavizado de ping
+                if (pingMs >= 0)
+                {
+                    if (smoothedPing < 0)
+                        smoothedPing = pingMs;
+                    else
+                        smoothedPing = Mathf.RoundToInt(Mathf.Lerp(smoothedPing, pingMs, 0.3f));
+                }
+                else
+                {
+                    smoothedPing = -1;
+                }
+                string pingStr = smoothedPing < 0 ? "N/A" : $"{smoothedPing}ms";
+                cachedNetLine = $"NET: ping {pingStr} | {sent}/{recv} pkts | {pps:F1} pps";
+                lastNetUpdateTime = Time.time;
+            }
+
             playerInfoText.text = $"Player {playerId} [{status}]\n" +
-                                 $"Pos: ({pos.x:F1}, {pos.y:F1}, {pos.z:F1})\n\n" +
+                                 $"Pos: ({pos.x:F1}, {pos.y:F1}, {pos.z:F1})\n" +
+                                 cachedNetLine + "\n\n" +
                                  "WASD: Move | Mouse: Look | Click: Shoot\n" +
                                  "Space: Jump | Tab: Scoreboard | ESC: Exit";
         }
