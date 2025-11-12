@@ -23,7 +23,7 @@ namespace BrickOps.Players
         // Sistema de buffer para triggers (solución para eventos de un frame)
         private int shootBufferFrames = 0;
         private int jumpBufferFrames = 0;
-        private const int TRIGGER_BUFFER_DURATION = 3; // Mantener trigger activo por 3 frames
+        private const int TRIGGER_BUFFER_DURATION = 10; // Mantener trigger activo por 5 frames
 
         // Hashes de parámetros del Animator (optimización)
         private static readonly int HashIsWalking = Animator.StringToHash("IsWalking");
@@ -120,11 +120,11 @@ namespace BrickOps.Players
                     Debug.Log($"[RemotePlayerAnimator] 💥 Shoot triggered! (Buffer: {TRIGGER_BUFFER_DURATION} frames)");
             }
             // Si el trigger sigue activo y el buffer no ha expirado, re-activarlo
-            else if (state.isShooting && shootBufferFrames > 0)
+            if (state.isShooting && shootBufferFrames > 0)
             {
-                animator.SetTrigger(HashShoot);
-                if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] 💥 Shoot RE-triggered! (Buffer remaining: {shootBufferFrames})");
+                // NO re-activar trigger, solo mantener el buffer
+                if (showDebug && shootBufferFrames == TRIGGER_BUFFER_DURATION - 1)
+                    Debug.Log($"[RemotePlayerAnimator] 💥 Shoot buffer maintained (frames left: {shootBufferFrames})");
             }
             lastShooting = state.isShooting;
 
@@ -137,11 +137,11 @@ namespace BrickOps.Players
                     Debug.Log($"[RemotePlayerAnimator] 🦘 Jump triggered! (Buffer: {TRIGGER_BUFFER_DURATION} frames)");
             }
             // Si el trigger sigue activo y el buffer no ha expirado, re-activarlo
-            else if (state.isJumping && jumpBufferFrames > 0)
+            if (state.isJumping && jumpBufferFrames > 0)
             {
-                animator.SetTrigger(HashJump);
-                if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] 🦘 Jump RE-triggered! (Buffer remaining: {jumpBufferFrames})");
+                // NO re-activar trigger, solo mantener el buffer
+                if (showDebug && jumpBufferFrames == TRIGGER_BUFFER_DURATION - 1)
+                    Debug.Log($"[RemotePlayerAnimator] 🦘 Jump buffer maintained (frames left: {jumpBufferFrames})");
             }
             lastJumping = state.isJumping;
         }

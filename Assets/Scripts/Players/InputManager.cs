@@ -92,7 +92,7 @@ public class InputManager : MonoBehaviour
     private float lastJumpTime = 0f;
     private float jumpGroundCheckDelay = 0.2f; // Tiempo que ignora el suelo después de saltar
     private int jumpBufferFrames = 0; // Contador de frames para mantener el trigger activo
-    private const int TRIGGER_BUFFER_DURATION = 5; // Mantener trigger activo por 5 frames (~166ms)
+    private const int TRIGGER_BUFFER_DURATION = 10; // Mantener trigger activo por 10 frames (~333ms)
 
     #region Private Variables - Shooting
     private float lastShootTime = 0f;
@@ -212,6 +212,16 @@ public class InputManager : MonoBehaviour
     {
         if (!isInitialized)
             return;
+
+        // ✅ NUEVO: Debug para verificar que los buffers funcionan
+        if (showDebug)
+        {
+            if (shootBufferFrames > 0)
+                Debug.Log($"[InputManager] 🔥 Shoot buffer active: {shootBufferFrames} frames left");
+            
+            if (jumpBufferFrames > 0)
+                Debug.Log($"[InputManager] 🦘 Jump buffer active: {jumpBufferFrames} frames left");
+        }
 
         // Decrementar contadores de buffer al inicio del frame
         if (shootBufferFrames > 0) shootBufferFrames--;
@@ -508,23 +518,8 @@ public class InputManager : MonoBehaviour
 
         // AimBlend: Para blend tree en el aire (evita reinicio de animación)
         // Solo se usa cuando está en el aire, permite apuntar sin reiniciar la animación de salto
-        if (!isGrounded)
-        {
-            float targetBlend = isAiming ? 1f : 0f;
-            float currentBlend = animator.GetFloat(HashAimBlend);
-            float newBlend = Mathf.Lerp(currentBlend, targetBlend, Time.deltaTime * 10f);
-            animator.SetFloat(HashAimBlend, newBlend);
-            
-            if (showDebug && Mathf.Abs(targetBlend - currentBlend) > 0.01f)
-            {
-                Debug.Log($"[InputManager] 🎯 AimBlend: {newBlend:F2} (target: {targetBlend})");
-            }
-        }
-        else
-        {
-            // En el suelo, resetear el blend
-            animator.SetFloat(HashAimBlend, 0f);
-        }
+
+        
 
         // Debug opcional
         if (showDebug && isMoving)
