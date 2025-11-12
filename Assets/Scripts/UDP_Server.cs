@@ -69,22 +69,6 @@ public class UDPServer_Select : MonoBehaviour
 
     void ProcessMessage(IPEndPoint sender, string msg)
     {
-        // Responder a PING con PONG para permitir medición de latencia en cliente
-        if (msg.StartsWith("PING:"))
-        {
-            try
-            {
-                string pongMsg = "PONG:" + msg.Substring("PING:".Length);
-                SendTo(sender, pongMsg);
-                Debug.Log($"<color=yellow>[Server] Respondido PONG a {sender}</color>");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[Server] Error enviando PONG: {ex.Message}");
-            }
-            return;
-        }
-
         if (!playerNames.ContainsKey(sender))
         {
             playerNames[sender] = msg;

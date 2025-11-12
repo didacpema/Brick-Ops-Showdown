@@ -84,26 +84,6 @@ public class ServerSceneController : MonoBehaviour
 
     void ProcessMessage(IPEndPoint sender, string msg)
     {
-        // ⭐ Responder a PING con PONG para medición de latencia
-        if (msg.StartsWith("PING:"))
-        {
-            try
-            {
-                string pongMsg = "PONG:" + msg.Substring("PING:".Length);
-                SendTo(sender, pongMsg);
-                // Log solo cada 5 segundos para no saturar
-                if (Time.frameCount % 300 == 0)
-                {
-                    Log($"PING/PONG activo con {sender}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"Error enviando PONG: {ex.Message}");
-            }
-            return;
-        }
-
         // Nuevo jugador conectándose
         if (!players.ContainsKey(sender))
         {

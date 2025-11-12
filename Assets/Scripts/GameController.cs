@@ -59,13 +59,6 @@ public class GameController : MonoBehaviour
     private int packetsSent = 0;
     private int packetsReceived = 0;
     
-    // Latencia
-    private float pingInterval = 1.0f;
-    private float nextPingTime = 0f;
-    private long lastPingTimestampMs = 0;
-    private float rttMs = -1f;
-    private float rttSmoothedMs = -1f;
-    
     // Kill feed
     private List<string> killFeedMessages = new List<string>();
     private const int MAX_KILL_FEED_LINES = 5;
@@ -135,13 +128,6 @@ public class GameController : MonoBehaviour
         {
             SendMyData();
             nextSendTime = Time.time + sendRate;
-        }
-
-        // Enviar ping periódico para medir RTT real si el servidor responde con PONG
-        if (Time.time >= nextPingTime)
-        {
-            SendPing();
-            nextPingTime = Time.time + pingInterval;
         }
 
         UpdateOtherPlayers();
@@ -386,9 +372,7 @@ public class GameController : MonoBehaviour
             otherInfo += $"\nPlayer {kvp.Key}: ({kvp.Value.posX:F1}, {kvp.Value.posY:F1}, {kvp.Value.posZ:F1})";
         }
 
-        string pingInfo = rttSmoothedMs >= 0 ? $" | Ping: {rttSmoothedMs:F0} ms" : "";
-
-        infoText.text = $"You are Player {myPlayerId} [{status}] {healthInfo}{pingInfo}\n" +
+        infoText.text = $"You are Player {myPlayerId} [{status}] {healthInfo}\n" +
                        $"My Pos: ({myPos.x:F1}, {myPos.y:F1}, {myPos.z:F1})" +
                        otherInfo + "\n\n" +
                        $"WASD: Move | Mouse: Look | LClick: Shoot\n" +
@@ -541,10 +525,6 @@ public class GameController : MonoBehaviour
                     {
                         ProcessDeathData(msg);
                     }
-                    else if (msg.StartsWith("PONG:"))
-                    {
-                        ProcessPong(msg);
-                    }
                     else if (msg == "SERVER_CLOSED")
                     {
                         Debug.Log("Server closed");
@@ -574,46 +554,6 @@ public class GameController : MonoBehaviour
         }
 
         otherStates[receivedState.playerId] = receivedState;
-    }
-
-    // --- Ping / Pong ---
-    void SendPing()
-    {
-        if (udpSocket == null || serverEndPoint == null) return;
-
-        try
-        {
-            lastPingTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            string message = "PING:" + lastPingTimestampMs;
-            byte[] data = Encoding.UTF8.GetBytes(message);
-            udpSocket.SendTo(data, serverEndPoint);
-            Debug.Log($"<color=cyan>[Ping] Enviado PING con timestamp {lastPingTimestampMs}</color>");
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Send ping failed: {ex.Message}");
-        }
-    }
-
-    void ProcessPong(string msg)
-    {
-        // Espera formato: "PONG:<timestampMs>"
-        string payload = msg.Substring("PONG:".Length);
-        if (long.TryParse(payload, out long sentMs))
-        {
-            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            float measured = (float)(nowMs - sentMs);
-            if (measured >= 0 && measured < 10000f)
-            {
-                rttMs = measured;
-                rttSmoothedMs = rttSmoothedMs < 0 ? rttMs : Mathf.Lerp(rttSmoothedMs, rttMs, 0.25f);
-                Debug.Log($"<color=green>[Ping] Recibido PONG! RTT: {measured:F0} ms | Suavizado: {rttSmoothedMs:F0} ms</color>");
-            }
-        }
-        else
-        {
-            Debug.LogWarning($"[Ping] PONG mal formateado: {msg}");
-        }
     }
 
     void ProcessShootData(string msg)
