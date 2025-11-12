@@ -2,15 +2,23 @@ using System;
 using UnityEngine;
 
 namespace BrickOps.Core
-{
-    [Serializable]
+{    [Serializable]
     public class PlayerState
     {
+        // Transform Data
         public int playerId;
         public float posX;
         public float posY;
         public float posZ;
         public float rotY;
+
+        // Animation Data
+        public bool isWalking;
+        public bool isRunning;
+        public bool isAiming;
+        public bool isGrounded;
+        public bool isShooting;
+        public bool isJumping;
 
         // Constructor vacío requerido por JsonUtility
         public PlayerState() { }
@@ -22,6 +30,30 @@ namespace BrickOps.Core
             posY = pos.y;
             posZ = pos.z;
             rotY = rotation;
+            
+            // Valores por defecto para animaciones
+            isWalking = false;
+            isRunning = false;
+            isAiming = false;
+            isGrounded = true;
+            isShooting = false;
+            isJumping = false;
+        }
+
+        // Constructor completo con datos de animación
+        public PlayerState(int id, Vector3 pos, float rotation, bool walking, bool running, bool aiming, bool grounded, bool shooting, bool jumping)
+        {
+            playerId = id;
+            posX = pos.x;
+            posY = pos.y;
+            posZ = pos.z;
+            rotY = rotation;
+            isWalking = walking;
+            isRunning = running;
+            isAiming = aiming;
+            isGrounded = grounded;
+            isShooting = shooting;
+            isJumping = jumping;
         }
 
         public Vector3 GetPosition()

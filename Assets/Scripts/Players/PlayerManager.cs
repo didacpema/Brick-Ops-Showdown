@@ -243,14 +243,22 @@ namespace BrickOps.Players
             {
                 health = player.AddComponent<PlayerHealth>();
             }
-            health.Initialize(playerId, false);
-
-            // Desactivar arma local
+            health.Initialize(playerId, false);            // Desactivar arma local
             WeaponController weapon = player.GetComponent<WeaponController>();
             if (weapon != null)
             {
                 weapon.enabled = false;
             }
+
+            // Agregar componente de sincronización de animaciones
+            RemotePlayerAnimator remoteAnimator = player.GetComponent<RemotePlayerAnimator>();
+            if (remoteAnimator == null)
+            {
+                remoteAnimator = player.AddComponent<RemotePlayerAnimator>();
+            }
+            remoteAnimator.Initialize();
+
+            Debug.Log($"[PlayerManager] Remote player {playerId} configured with animation sync");
         }
 
         /// <summary>
@@ -269,8 +277,7 @@ namespace BrickOps.Players
         }
         #endregion
 
-        #region State Management
-        /// <summary>
+        #region State Management        /// <summary>
         /// Actualiza el estado de un jugador remoto
         /// </summary>
         public void UpdatePlayerState(int playerId, PlayerState state)
@@ -284,6 +291,16 @@ namespace BrickOps.Players
             if (!remotePlayers.ContainsKey(playerId))
             {
                 SpawnRemotePlayer(playerId, state.GetPosition(), state.rotY);
+            }
+            
+            // Aplicar animaciones al jugador remoto
+            if (remotePlayers.TryGetValue(playerId, out GameObject player))
+            {
+                RemotePlayerAnimator remoteAnimator = player.GetComponent<RemotePlayerAnimator>();
+                if (remoteAnimator != null)
+                {
+                    remoteAnimator.ApplyAnimationState(state);
+                }
             }
         }
 

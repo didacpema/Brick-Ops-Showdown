@@ -88,16 +88,16 @@ public class InputManager : MonoBehaviour
     private bool isRunning = false;
     private bool isAiming = false;
     private float currentMoveSpeed = 0f;
-    #endregion
-
-    #region Private Variables - Jump
+    #endregion    #region Private Variables - Jump
     private float lastJumpTime = 0f;
     private float jumpGroundCheckDelay = 0.2f; // Tiempo que ignora el suelo después de saltar
-    #endregion
+    private int jumpBufferFrames = 0; // Contador de frames para mantener el trigger activo
+    private const int TRIGGER_BUFFER_DURATION = 5; // Mantener trigger activo por 5 frames (~166ms)
 
     #region Private Variables - Shooting
     private float lastShootTime = 0f;
     private float shootCooldown = 0.4f; // Cooldown mínimo entre disparos
+    private int shootBufferFrames = 0; // Contador de frames para mantener el trigger activo
     #endregion
 
     #region Animation Parameter Hashes (Optimización)
@@ -207,28 +207,29 @@ public class InputManager : MonoBehaviour
         
         Debug.Log("[InputManager] ✓ Physics configured");
     }
-    #endregion
-
-    #region Unity Lifecycle
+    #endregion    #region Unity Lifecycle
     void Update()
     {
-        if (!isInitialized || playerObject == null || rb == null)
+        if (!isInitialized)
             return;
 
-        // Actualizar estados
+        // Decrementar contadores de buffer al inicio del frame
+        if (shootBufferFrames > 0) shootBufferFrames--;
+        if (jumpBufferFrames > 0) jumpBufferFrames--;
+
+        // Ground detection
         UpdateGroundStatus();
-        
+
         // Procesar input
         ProcessInput();
-        
+
         // Actualizar animaciones
         UpdateAnimations();
-        
+
         // Actualizar zoom de cámara
         UpdateCameraZoom();
     }
-    #endregion
-
+    
     #region Input Processing
     /// <summary>
     /// Procesa todo el input del jugador
@@ -339,14 +340,15 @@ public class InputManager : MonoBehaviour
     void CaptureShootingInput()
     {
         if (weaponController == null)
-            return;
-
-        // Disparo SEMI-AUTOMÁTICO con cooldown adicional
+            return;        // Disparo SEMI-AUTOMÁTICO con cooldown adicional
         // Solo dispara si se hace click Y ha pasado el tiempo de cooldown
         if (Input.GetMouseButtonDown(0) && Time.time >= lastShootTime + shootCooldown)
         {
             weaponController.TryShoot();
             lastShootTime = Time.time;
+            
+            // Activar buffer de frames para sincronización de red
+            shootBufferFrames = TRIGGER_BUFFER_DURATION;
             
             // Trigger de animación
             if (animator != null)
@@ -355,7 +357,7 @@ public class InputManager : MonoBehaviour
             }
             
             if (showDebug)
-                Debug.Log($"[InputManager] 💥 Shot fired at {Time.time:F2}");
+                Debug.Log($"[InputManager] 💥 Shot fired at {Time.time:F2} (buffer: {TRIGGER_BUFFER_DURATION} frames)");
         }
     }
     #endregion
@@ -367,16 +369,12 @@ public class InputManager : MonoBehaviour
     bool CanJump()
     {
         return isGrounded && (Time.time >= lastJumpTime + jumpCooldown);
-    }
-
-    /// <summary>
+    }    /// <summary>
     /// Ejecuta el salto
     /// </summary>
     void PerformJump()
     {
-        if (rb == null) return;
-
-        // Aplicar fuerza de salto
+        if (rb == null) return;        // Aplicar fuerza de salto
         rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         
         // Actualizar tiempo del último salto
@@ -385,6 +383,9 @@ public class InputManager : MonoBehaviour
         // IMPORTANTE: Forzar isGrounded a false inmediatamente al saltar
         isGrounded = false;
         
+        // Activar buffer de frames para sincronización de red
+        jumpBufferFrames = TRIGGER_BUFFER_DURATION;
+        
         // Trigger de animación
         if (animator != null)
         {
@@ -392,7 +393,7 @@ public class InputManager : MonoBehaviour
         }
         
         if (showDebug)
-            Debug.Log($"[InputManager] 🦘 Jump at {Time.time:F2}! IsGrounded set to FALSE");
+            Debug.Log($"[InputManager] 🦘 Jump performed at {Time.time:F2} (buffer: {TRIGGER_BUFFER_DURATION} frames)");
     }
     #endregion
 
@@ -605,6 +606,25 @@ public class InputManager : MonoBehaviour
     {
         return $"Ground: {isGrounded} | Moving: {isMoving} | Running: {isRunning} | " +
                $"Speed: {currentMoveSpeed:F2} | Aiming: {isAiming}";
+    }    /// <summary>
+    /// Crea un PlayerState completo con datos de posición y animación para sincronización de red
+    /// </summary>
+    public BrickOps.Core.PlayerState GetCurrentPlayerState(int playerId)
+    {
+        if (playerTransform == null)
+            return null;
+
+        return new BrickOps.Core.PlayerState(
+            playerId,
+            playerTransform.position,
+            playerTransform.eulerAngles.y,
+            isMoving && !isRunning,  // isWalking
+            isRunning,                // isRunning
+            isAiming,                 // isAiming
+            isGrounded,               // isGrounded
+            shootBufferFrames > 0,    // isShooting - TRUE mientras el buffer esté activo
+            jumpBufferFrames > 0      // isJumping - TRUE mientras el buffer esté activo
+        );
     }
     #endregion
 }

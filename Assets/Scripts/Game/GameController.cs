@@ -464,24 +464,33 @@ public class GameController : MonoBehaviour
 
         SendPlayerData();
         nextSendTime = Time.time + (1f / sendRate);
-    }
-
-    void SendPlayerData()
+    }    void SendPlayerData()
     {
         if (udpSocket == null)
             return;
 
         GameObject localPlayer = PlayerManager.Instance?.LocalPlayer;
         if (localPlayer == null)
-            return;
-
-        try
+            return;        try
         {
-            PlayerState state = new PlayerState(
-                myPlayerId,
-                localPlayer.transform.position,
-                localPlayer.transform.eulerAngles.y
-            );
+            // Obtener InputManager para estados de animación
+            InputManager inputManager = FindFirstObjectByType<InputManager>();
+            PlayerState state;
+
+            if (inputManager != null)
+            {
+                // Usar el nuevo método que incluye estados de animación
+                state = inputManager.GetCurrentPlayerState(myPlayerId);
+            }
+            else
+            {
+                // Fallback: crear estado solo con posición
+                state = new PlayerState(
+                    myPlayerId,
+                    localPlayer.transform.position,
+                    localPlayer.transform.eulerAngles.y
+                );
+            }
 
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_DATA, state);
             byte[] data = NetworkProtocol.MessageToBytes(message);
