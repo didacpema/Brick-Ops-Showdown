@@ -138,7 +138,8 @@ public class PlayerController : MonoBehaviour
         if (rb != null)
         {
             rb.isKinematic = isKinematic;
-            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            // Freeze all rotation axes to prevent collision-induced spins
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
         }
     }
     #endregion

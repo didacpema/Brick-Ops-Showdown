@@ -192,8 +192,10 @@ public class InputManager : MonoBehaviour
         if (Mathf.Abs(mouseInput) > 0.001f)
         {
             mouseX += mouseInput * mouseSensitivity;
-            playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
         }
+
+        // Always enforce rotation from mouseX so physics can't drift it
+        playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
 
         if (Input.GetKey(KeyCode.Q))
         {
@@ -204,6 +206,12 @@ public class InputManager : MonoBehaviour
         {
             mouseX += keyboardRotateSpeed * Time.deltaTime;
             playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
+        }
+
+        // Kill any residual angular velocity from physics
+        if (rb != null)
+        {
+            rb.angularVelocity = Vector3.zero;
         }
     }
 
