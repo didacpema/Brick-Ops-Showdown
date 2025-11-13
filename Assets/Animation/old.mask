@@ -6,14 +6,26 @@ AvatarMask:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: UpperBodyMask
-  m_Mask: 00000000010000000100000000000000000000000100000001000000010000000100000000000000000000000100000001000000
+  m_Name: old
+  m_Mask: 00000000010000000100000000000000000000000100000001000000010000000100000000000000000000000000000000000000
   m_Elements:
   - m_Path: 
     m_Weight: 1
   - m_Path: Armature
     m_Weight: 1
   - m_Path: Armature/main
+    m_Weight: 1
+  - m_Path: Armature/main/Bone
+    m_Weight: 1
+  - m_Path: Armature/main/Bone/Bone.001
+    m_Weight: 1
+  - m_Path: Armature/main/Bone/Bone.001/Bone.001_end
+    m_Weight: 1
+  - m_Path: Armature/main/Bone/Bone.002
+    m_Weight: 1
+  - m_Path: Armature/main/Bone/Bone.002/Bone.002_end
+    m_Weight: 1
+  - m_Path: Armature/main/Bone/Object_2.005
     m_Weight: 1
   - m_Path: Armature/main/brazoID.001
     m_Weight: 1
@@ -86,18 +98,6 @@ AvatarMask:
   - m_Path: Armature/main/torsoI/torsoS/cabeza
     m_Weight: 1
   - m_Path: Armature/main/torsoI/torsoS/cabeza/cabeza_end
-    m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon
-    m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.001
-    m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.001/Bone.001_end
-    m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.002
-    m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.002/Bone.002_end
-    m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Object_2.005
     m_Weight: 1
   - m_Path: Object_2
     m_Weight: 1

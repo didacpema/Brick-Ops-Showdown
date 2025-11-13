@@ -5,7 +5,7 @@ using BrickOps.Players;
 /// <summary>
 /// Sistema de control del jugador optimizado
 /// Maneja input, movimiento, rotación, salto y animaciones
-/// Integrado con CameraController y CameraShake
+/// Integrado con CameraController, CameraShake y TorsoAimController
 /// </summary>
 public class InputManager : MonoBehaviour
 {
@@ -16,9 +16,7 @@ public class InputManager : MonoBehaviour
 
     [Header("Rotation")]
     public float mouseSensitivity = 2f;
-    public float keyboardRotateSpeed = 100f;
-
-    [Header("Jump")]
+    public float keyboardRotateSpeed = 100f;    [Header("Jump")]
     public float jumpForce = 4f;
     public float jumpCooldown = 1f;
     public float groundCheckDistance = 1.1f;
@@ -36,6 +34,7 @@ public class InputManager : MonoBehaviour
     private WeaponController weaponController;
     private CameraController cameraController;
     private CameraShake cameraShake;
+    // TorsoAimController - se inicializa automáticamente en su propio Start()
     #endregion
 
     #region State
@@ -103,15 +102,15 @@ public class InputManager : MonoBehaviour
         if (animator == null)
         {
             animator = playerObject.GetComponentInChildren<Animator>();
-        }
-
-        weaponController = playerObject.GetComponent<WeaponController>();
+        }        weaponController = playerObject.GetComponent<WeaponController>();
         
         cameraController = playerObject.GetComponentInChildren<CameraController>();
         if (cameraController != null)
         {
             cameraShake = cameraController.GetComponent<CameraShake>();
         }
+
+        // TorsoAimController se inicializa automáticamente en su propio Start()
 
         return rb != null;
     }
@@ -192,8 +191,10 @@ public class InputManager : MonoBehaviour
         if (Mathf.Abs(mouseInput) > 0.001f)
         {
             mouseX += mouseInput * mouseSensitivity;
-            playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
         }
+
+        // Always enforce rotation from mouseX so physics can't drift it
+        playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
 
         if (Input.GetKey(KeyCode.Q))
         {
@@ -204,6 +205,12 @@ public class InputManager : MonoBehaviour
         {
             mouseX += keyboardRotateSpeed * Time.deltaTime;
             playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
+        }
+
+        // Kill any residual angular velocity from physics
+        if (rb != null)
+        {
+            rb.angularVelocity = Vector3.zero;
         }
     }
 
