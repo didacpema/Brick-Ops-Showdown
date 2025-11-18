@@ -931,9 +931,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78ec6e7fbc2bbb149867713229890583, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraController
-  playerRoot: {fileID: 0}
-  cameraOffset: {x: 1.221, y: 1.96, z: 0}
-  cameraDistance: 3.5
+  playerRoot: {fileID: 6024411581818499261}
+  cameraOffset: {x: 1.4, y: 1.74, z: 0}
+  cameraDistance: 3
   followSpeed: 30
   mouseSensitivity: 2
   maxVerticalAngle: 80
