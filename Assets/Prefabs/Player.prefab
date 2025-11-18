@@ -149,6 +149,7 @@ Transform:
   - {fileID: 2430851194900821039}
   - {fileID: 958237715566398287}
   - {fileID: 1308542859318743157}
+  - {fileID: 8183838677337774007}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &5145801595520724822
@@ -203,10 +204,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 263655279891804507}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -287,6 +288,7 @@ MonoBehaviour:
   inputManager: {fileID: 962561161310929502}
   cameraController: {fileID: 7067386358910972988}
   remoteAnimator: {fileID: 4864032147113254726}
+  cameraTargetPoint: {fileID: 8183838677337774007}
 --- !u!114 &962561161310929502
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -929,22 +931,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78ec6e7fbc2bbb149867713229890583, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraController
-  torsoTarget: {fileID: 4167314658848518288}
-  cameraOffsetTransform: {fileID: 2966765277990749402}
+  playerRoot: {fileID: 6024411581818499261}
+  cameraOffset: {x: 1.221, y: 1.96, z: -3.99}
   followSpeed: 15
-  followTorsoRotation: 1
-  verticalFramingOffset: 0.22
+  mouseSensitivity: 2
+  maxVerticalAngle: 80
+  minVerticalAngle: -80
   normalFOV: 60
   aimFOV: 40
   sprintFOV: 70
   zoomSpeed: 10
-  verticalSensitivity: 2
-  maxVerticalAngle: 80
-  minVerticalAngle: -80
-  walkShakeIntensity: 0.05
-  runShakeIntensity: 0.1
-  jumpShakeIntensity: 0.46
-  shakeFrequency: 10
+  walkShakeIntensity: 0.01
+  runShakeIntensity: 0.03
+  jumpShakeIntensity: 0.05
+  shakeFrequency: 15
   jumpShakeDuration: 1
 --- !u!114 &8564790204941234944
 MonoBehaviour:
@@ -960,7 +960,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraShake
   shootShake:
     duration: 0.15
-    magnitude: 0.08
+    magnitude: 0.15
     frequency: 30
     dampingCurve:
       serializedVersion: 2
@@ -1370,6 +1370,37 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2143070107061442611}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3826807883450762804
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8183838677337774007}
+  m_Layer: 6
+  m_Name: CameraTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8183838677337774007
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3826807883450762804}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.000000059604645, y: 2.220446e-16, z: 0.000000002095476, w: 1}
+  m_LocalPosition: {x: 0.15375915, y: 1.9085107, z: 0.29271746}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2388141480348728957}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4047652129486254426
 GameObject:

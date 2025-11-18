@@ -31,6 +31,9 @@ public class PlayerController : MonoBehaviour
 
     [Tooltip("Referencia al RemotePlayerAnimator (solo para jugadores remotos)")]
     public RemotePlayerAnimator remoteAnimator;
+
+    [Header("Camera")]
+    [SerializeField] private Transform cameraTargetPoint; // GameObject vacío fijo
     #endregion
 
     #region Component Cache
@@ -45,6 +48,19 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         CacheComponents();
+    }
+
+    void Start()
+    {
+        // Si no hay target point, créalo
+        if (cameraTargetPoint == null)
+        {
+            GameObject targetObj = new GameObject("CameraTarget");
+            targetObj.transform.SetParent(transform);
+            targetObj.transform.localPosition = new Vector3(0f, 1.6f, 0f); // Altura de ojos
+            targetObj.transform.localRotation = Quaternion.identity;
+            cameraTargetPoint = targetObj.transform;
+        }
     }
 
     void CacheComponents()

@@ -1074,7 +1074,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerPrefab: {fileID: 263655279891804507, guid: e0a953748d530e74da18e00eea8cfa3f, type: 3}
-  spawnPoints: []
+  spawnPoints:
+  - {fileID: 796065485}
+  - {fileID: 2048683207}
   localPlayerMaterial: {fileID: 2100000, guid: d91c06dd0ec0081439fa15ab885ecc47, type: 2}
   remotePlayerMaterial: {fileID: 2100000, guid: cdfad2daae13a694284b7eb4bf982868, type: 2}
   localPlayerColor: {r: 0, g: 0, b: 1, a: 1}

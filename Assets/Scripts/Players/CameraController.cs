@@ -3,34 +3,32 @@ using UnityEngine;
 namespace BrickOps.Players
 {
     /// <summary>
-    /// Sistema de cámara que sigue al torso del jugador con zoom y efectos
-    /// La cámara mantiene al torso en encuadre incluso cuando este rota verticalmente
+    /// Sistema de cámara en primera persona con rotación independiente de animaciones
     /// </summary>
     [RequireComponent(typeof(Camera))]
     public class CameraController : MonoBehaviour
     {
-        #region Inspector Variables        [Header("Torso Follow Settings")]
-        [Tooltip("Transform del torso a seguir (TorsoI)")]
-        public Transform torsoTarget;
+        #region Inspector Variables
+        [Header("Follow Settings")]
+        [Tooltip("Transform del JUGADOR ROOT (NO el hueso del torso)")]
+        public Transform playerRoot;
         
-        [Tooltip("Transform de offset de cámara (hijo del torso, marca posición y rotación base)")]
-        public Transform cameraOffsetTransform;
+        [Tooltip("Offset local desde el root del jugador (altura de ojos)")]
+        public Vector3 cameraOffset = new Vector3(0f, 1.6f, 0f);
         
-        [Tooltip("Velocidad de seguimiento del torso (mayor = más pegada)")]
+        [Tooltip("Velocidad de seguimiento suave")]
         [Range(1f, 30f)]
-        public float followSpeed = 15f;
-        
-        [Tooltip("Mantener la cámara siguiendo el torso incluso cuando rota verticalmente")]
-        public bool followTorsoRotation = true;        [Tooltip("Compensación vertical adicional para mantener al jugador en frame al apuntar arriba/abajo")]
-        [Range(0f, 2f)]
-        public float verticalFramingOffset = 0.5f;
+        public float followSpeed = 20f;
 
-        [Tooltip("Reducir seguimiento durante disparo (0 = no seguir, 1 = seguir normal)")]
-        [Range(0f, 1f)]
-        public float shootingFollowDamping = 0.3f;
+        [Header("Rotation Settings")]
+        [Tooltip("Sensibilidad del mouse")]
+        public float mouseSensitivity = 2f;
 
-        [Tooltip("Duración del damping después de disparar")]
-        public float shootingDampDuration = 0.3f;
+        [Tooltip("Ángulo máximo hacia arriba")]
+        public float maxVerticalAngle = 80f;
+
+        [Tooltip("Ángulo máximo hacia abajo")]
+        public float minVerticalAngle = -80f;
 
         [Header("Zoom Settings")]
         [Tooltip("FOV normal")]
@@ -39,31 +37,23 @@ namespace BrickOps.Players
         [Tooltip("FOV al apuntar")]
         public float aimFOV = 40f;
 
-        [Tooltip("FOV al sprintar (mayor FOV = sensación de velocidad)")]
+        [Tooltip("FOV al sprintar")]
         public float sprintFOV = 70f;
 
         [Tooltip("Velocidad de transición del zoom")]
         public float zoomSpeed = 10f;
 
-        [Header("Camera Rotation Settings")]
-        [Tooltip("Sensibilidad del mouse para rotación vertical")]
-        public float verticalSensitivity = 2f;
-
-        [Tooltip("Ángulo máximo de rotación hacia arriba")]
-        public float maxVerticalAngle = 80f;
-
-        [Tooltip("Ángulo máximo de rotación hacia abajo")]
-        public float minVerticalAngle = -80f;
-
         [Header("Procedural Shake Settings")]
         [Tooltip("Intensidad del shake al caminar")]
-        public float walkShakeIntensity = 0.005f;        [Tooltip("Intensidad del shake al correr")]
+        public float walkShakeIntensity = 0.005f;
+
+        [Tooltip("Intensidad del shake al correr")]
         public float runShakeIntensity = 0.015f;
         
         [Tooltip("Intensidad del shake al saltar")]
         public float jumpShakeIntensity = 0.03f;
         
-        [Tooltip("Frecuencia del shake (velocidad de la oscilación)")]
+        [Tooltip("Frecuencia del shake")]
         public float shakeFrequency = 10f;
         
         [Tooltip("Duración del shake de salto")]
@@ -73,22 +63,19 @@ namespace BrickOps.Players
         #region Private Variables
         private Camera cam;
         private CameraShake cameraShake;
+        
+        // Estados
         private bool isAiming;
         private bool isSprinting;
         private bool isWalking;
         private bool isRunning;
         
-        // Camera rotation
+        // Rotación (SOLO por input del jugador)
         private float verticalRotation;
-        private Quaternion initialLocalRotation;
-          // Camera follow
-        private Vector3 baseOffset;
-        private bool hasOffsetTransform;
-        private Vector3 targetFollowPosition; // Posición base calculada antes de aplicar shake
+        private float horizontalRotation;
         
-        // Shooting damping
-        private float shootingDampTimer;
-        private bool isShooting;
+        // Posición base (sin shake)
+        private Vector3 targetPosition;
         
         // Shake procedural
         private float shakeTime;
@@ -102,130 +89,74 @@ namespace BrickOps.Players
             cam = GetComponent<Camera>();
             cameraShake = GetComponent<CameraShake>();
             normalFOV = cam.fieldOfView;
-            initialLocalRotation = transform.localRotation;
-            verticalRotation = transform.localEulerAngles.x;
-
-            // Si hay offset transform, usarlo como base
-            if (cameraOffsetTransform != null)
+            
+            if (playerRoot == null)
             {
-                hasOffsetTransform = true;
-                baseOffset = cameraOffsetTransform.localPosition;
-            }
-            else
-            {
-                hasOffsetTransform = false;
-                baseOffset = transform.localPosition;
+                Debug.LogError("[CameraController] PlayerRoot not assigned!");
             }
         }
 
         void LateUpdate()
         {
-            UpdateCameraFollow();
-            UpdateCameraRotation();
+            HandleCameraRotation();
+            UpdateCameraPosition();
             UpdateZoom();
-            UpdateProceduralShake();
+            ApplyProceduralShake();
         }
         #endregion
 
         #region Camera Logic
         /// <summary>
-        /// Actualiza la posición de la cámara para seguir al torso
+        /// Maneja SOLO la rotación por input del mouse
         /// </summary>
-        void UpdateCameraFollow()
+        void HandleCameraRotation()
         {
-            if (torsoTarget == null)
-                return;
-
-            Vector3 targetPosition;
-            Quaternion targetRotation;
-
-            if (hasOffsetTransform && cameraOffsetTransform != null)
-            {
-                // Usar la posición y rotación del offset transform
-                targetPosition = cameraOffsetTransform.position;
-                
-                if (followTorsoRotation)
-                {
-                    // La cámara hereda la rotación base del offset (que sigue al torso)
-                    targetRotation = cameraOffsetTransform.rotation * Quaternion.Euler(verticalRotation, 0f, 0f);
-                }
-                else
-                {
-                    // Solo usar la posición del offset, no la rotación
-                    targetRotation = transform.parent.rotation * Quaternion.Euler(verticalRotation, 0f, 0f);
-                }
-            }
-            else
-            {
-                // Fallback: posicionarse relativo al torso
-                targetPosition = torsoTarget.position + torsoTarget.TransformDirection(baseOffset);
-                
-                if (followTorsoRotation)
-                {
-                    targetRotation = torsoTarget.rotation * initialLocalRotation * Quaternion.Euler(verticalRotation, 0f, 0f);
-                }
-                else
-                {
-                    targetRotation = transform.parent.rotation * Quaternion.Euler(verticalRotation, 0f, 0f);
-                }            }
-
-            // Aplicar compensación vertical para mantener al jugador en encuadre
-            // Cuando apunta arriba, la cámara se mueve hacia arriba
-            // Cuando apunta abajo, la cámara se mueve hacia abajo
-            float normalizedVertical = verticalRotation / maxVerticalAngle; // -1 a 1
-            Vector3 framingCompensation = Vector3.up * normalizedVertical * verticalFramingOffset;
-            targetPosition += framingCompensation;
-
-            // Interpolar suavemente hacia la posición objetivo
-            targetFollowPosition = Vector3.Lerp(transform.position, targetPosition, Time.deltaTime * followSpeed);
-            transform.position = targetFollowPosition; // Guardar la posición base sin shake
+            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
             
-            // Aplicar rotación (sin interpolación para mantener responsividad)
-            if (followTorsoRotation)
-            {
-                transform.rotation = targetRotation;
-            }
+            // Rotación horizontal (Y global)
+            horizontalRotation += mouseX;
+            
+            // Rotación vertical (X local) con clamp
+            verticalRotation -= mouseY;
+            verticalRotation = Mathf.Clamp(verticalRotation, minVerticalAngle, maxVerticalAngle);
+            
+            // Aplicar rotación SOLO por input (ignorar animaciones)
+            transform.rotation = Quaternion.Euler(verticalRotation, horizontalRotation, 0f);
         }
 
-        void UpdateCameraRotation()
+        /// <summary>
+        /// Actualiza la posición base de la cámara (sin animaciones)
+        /// </summary>
+        void UpdateCameraPosition()
         {
-            // Capturar input del mouse Y para rotación vertical
-            float mouseY = Input.GetAxis("Mouse Y");
+            if (playerRoot == null) return;
             
-            if (Mathf.Abs(mouseY) > 0.001f)
-            {
-                verticalRotation -= mouseY * verticalSensitivity;
-                verticalRotation = Mathf.Clamp(verticalRotation, minVerticalAngle, maxVerticalAngle);
-            }
+            // Posición base: root del jugador + offset fijo
+            // NO usa ningún hueso animado
+            Vector3 desiredPosition = playerRoot.position + playerRoot.TransformDirection(cameraOffset);
             
-            // Aplicar rotación local (solo en X para arriba/abajo)
-            transform.localRotation = Quaternion.Euler(verticalRotation, 0f, 0f);
+            // Interpolación suave
+            targetPosition = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * followSpeed);
         }
 
         void UpdateZoom()
         {
-            float targetFOV;
+            float targetFOV = normalFOV;
             
             if (isAiming)
-            {
                 targetFOV = aimFOV;
-            }
             else if (isSprinting)
-            {
                 targetFOV = sprintFOV;
-            }
-            else
-            {
-                targetFOV = normalFOV;
-            }
-              cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFOV, Time.deltaTime * zoomSpeed);
+            
+            cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFOV, Time.deltaTime * zoomSpeed);
         }
         
-        void UpdateProceduralShake()
+        void ApplyProceduralShake()
         {
-            Vector3 proceduralShakeOffset = Vector3.zero;
+            Vector3 shakeOffset = Vector3.zero;
             
-            // Shake de salto (temporal)
+            // Shake de salto
             if (isJumpShaking)
             {
                 jumpShakeTimer -= Time.deltaTime;
@@ -235,103 +166,53 @@ namespace BrickOps.Players
                 }
                 else
                 {
-                    float normalizedTime = 1f - (jumpShakeTimer / jumpShakeDuration);
-                    float shake = Mathf.Sin(normalizedTime * Mathf.PI * 2) * jumpShakeIntensity * (jumpShakeTimer / jumpShakeDuration);
-                    proceduralShakeOffset.y += shake;
+                    float t = 1f - (jumpShakeTimer / jumpShakeDuration);
+                    float shake = Mathf.Sin(t * Mathf.PI * 2) * jumpShakeIntensity * (jumpShakeTimer / jumpShakeDuration);
+                    shakeOffset.y += shake;
                 }
             }
             
-            // Shake continuo (caminar/correr)
+            // Shake de movimiento
             if (isWalking || isRunning)
             {
                 shakeTime += Time.deltaTime * shakeFrequency;
                 
                 float intensity = isRunning ? runShakeIntensity : walkShakeIntensity;
-                
-                // Oscilación vertical (bobbing)
-                proceduralShakeOffset.y += Mathf.Sin(shakeTime) * intensity;
-                
-                // Oscilación horizontal sutil
-                proceduralShakeOffset.x += Mathf.Sin(shakeTime * 0.5f) * intensity * 0.5f;
-            }            else
+                shakeOffset.y += Mathf.Sin(shakeTime) * intensity;
+                shakeOffset.x += Mathf.Sin(shakeTime * 0.5f) * intensity * 0.5f;
+            }
+            else
             {
-                // Reset gradual del tiempo cuando no se mueve
                 shakeTime = Mathf.Lerp(shakeTime, 0, Time.deltaTime * 5f);
             }
             
-            // Combinar shake procedural con shake de eventos (impacto, disparo, etc)
-            Vector3 totalShakeOffset = proceduralShakeOffset;
-            
+            // Combinar con shake de eventos
             if (cameraShake != null)
             {
-                totalShakeOffset += cameraShake.GetCurrentShakeOffset();
+                shakeOffset += cameraShake.GetCurrentShakeOffset();
             }
             
-            // Aplicar shake SUMANDO sobre la posición base guardada (no acumula)
-            // Siempre partimos de targetFollowPosition y le sumamos el shake actual
-            transform.position = targetFollowPosition + transform.TransformDirection(totalShakeOffset);
+            // Aplicar: posición base + shake en espacio local
+            transform.position = targetPosition + transform.TransformDirection(shakeOffset);
         }
         #endregion
 
         #region Public API
-        /// <summary>
-        /// Establece el estado de aiming
-        /// </summary>
-        public void SetAiming(bool aiming)
-        {
-            isAiming = aiming;
-        }
-
-        /// <summary>
-        /// Establece el estado de sprint
-        /// </summary>
-        public void SetSprinting(bool sprinting)
-        {
-            isSprinting = sprinting;
-        }
-
-        /// <summary>
-        /// Establece el estado de movimiento
-        /// </summary>
+        public void SetAiming(bool aiming) => isAiming = aiming;
+        public void SetSprinting(bool sprinting) => isSprinting = sprinting;
         public void SetMovementState(bool walking, bool running)
         {
             isWalking = walking;
             isRunning = running;
         }
-
-        /// <summary>
-        /// Dispara el shake de salto
-        /// </summary>
         public void TriggerJumpShake()
         {
             isJumpShaking = true;
             jumpShakeTimer = jumpShakeDuration;
         }
-
-        /// <summary>
-        /// Obtiene la cámara
-        /// </summary>
-        public Camera GetCamera()
-        {
-            return cam;
-        }
-
-        /// <summary>
-        /// Obtiene el ángulo vertical actual de la cámara (normalizado de -1 a 1)
-        /// -1 = mirando hacia abajo, 0 = horizontal, 1 = mirando hacia arriba
-        /// </summary>
-        public float GetVerticalAngleNormalized()
-        {
-            return verticalRotation / maxVerticalAngle;
-        }
-
-        /// <summary>
-        /// Obtiene el ángulo vertical actual en grados
-        /// </summary>
-        public float GetVerticalAngleDegrees()
-        {
-            return verticalRotation;
-        }
+        public Camera GetCamera() => cam;
+        public float GetVerticalAngleNormalized() => verticalRotation / maxVerticalAngle;
+        public float GetVerticalAngleDegrees() => verticalRotation;
         #endregion
     }
 }
