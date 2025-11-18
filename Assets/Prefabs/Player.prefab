@@ -931,19 +931,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78ec6e7fbc2bbb149867713229890583, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraController
-  playerRoot: {fileID: 6024411581818499261}
-  cameraOffset: {x: 1.221, y: 1.96, z: -3.99}
-  followSpeed: 15
+  playerRoot: {fileID: 0}
+  cameraOffset: {x: 1.221, y: 1.96, z: 0}
+  cameraDistance: 3.5
+  followSpeed: 30
   mouseSensitivity: 2
   maxVerticalAngle: 80
   minVerticalAngle: -80
+  enableCameraCollision: 0
+  collisionRadius: 0.3
+  collisionLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   normalFOV: 60
   aimFOV: 40
   sprintFOV: 70
   zoomSpeed: 10
-  walkShakeIntensity: 0.01
-  runShakeIntensity: 0.03
-  jumpShakeIntensity: 0.05
+  walkShakeIntensity: 0.005
+  runShakeIntensity: 0.015
+  jumpShakeIntensity: 0.02
   shakeFrequency: 15
   jumpShakeDuration: 1
 --- !u!114 &8564790204941234944
@@ -960,7 +966,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraShake
   shootShake:
     duration: 0.15
-    magnitude: 0.15
+    magnitude: 0.1
     frequency: 30
     dampingCurve:
       serializedVersion: 2

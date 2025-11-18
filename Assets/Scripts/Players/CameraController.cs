@@ -16,9 +16,13 @@ namespace BrickOps.Players
         [Tooltip("Offset local desde el root del jugador (altura de ojos)")]
         public Vector3 cameraOffset = new Vector3(0f, 1.6f, 0f);
         
+        [Tooltip("Distancia de la cámara detrás del jugador")]
+        [Range(1f, 10f)]
+        public float cameraDistance = 3f;
+        
         [Tooltip("Velocidad de seguimiento suave")]
         [Range(1f, 30f)]
-        public float followSpeed = 20f;
+        public float followSpeed = 10f;
 
         [Header("Rotation Settings")]
         [Tooltip("Sensibilidad del mouse")]
@@ -29,6 +33,16 @@ namespace BrickOps.Players
 
         [Tooltip("Ángulo máximo hacia abajo")]
         public float minVerticalAngle = -80f;
+
+        [Header("Camera Collision")]
+        [Tooltip("Activar colisión de cámara con obstáculos")]
+        public bool enableCameraCollision = true;
+        
+        [Tooltip("Radio del raycast para colisión")]
+        public float collisionRadius = 0.3f;
+        
+        [Tooltip("Layers que bloquean la cámara")]
+        public LayerMask collisionLayers = -1;
 
         [Header("Zoom Settings")]
         [Tooltip("FOV normal")]
@@ -74,9 +88,6 @@ namespace BrickOps.Players
         private float verticalRotation;
         private float horizontalRotation;
         
-        // Posición base (sin shake)
-        private Vector3 targetPosition;
-        
         // Shake procedural
         private float shakeTime;
         private float jumpShakeTimer;
@@ -99,9 +110,8 @@ namespace BrickOps.Players
         void LateUpdate()
         {
             HandleCameraRotation();
-            UpdateCameraPosition();
+            UpdateCameraPositionAndRotation();
             UpdateZoom();
-            ApplyProceduralShake();
         }
         #endregion
 
@@ -120,39 +130,51 @@ namespace BrickOps.Players
             // Rotación vertical (X local) con clamp
             verticalRotation -= mouseY;
             verticalRotation = Mathf.Clamp(verticalRotation, minVerticalAngle, maxVerticalAngle);
-            
-            // Aplicar rotación SOLO por input (ignorar animaciones)
-            transform.rotation = Quaternion.Euler(verticalRotation, horizontalRotation, 0f);
         }
 
         /// <summary>
-        /// Actualiza la posición base de la cámara (sin animaciones)
+        /// Actualiza posición y rotación de forma orbital alrededor del punto de los ojos
         /// </summary>
-        void UpdateCameraPosition()
+        void UpdateCameraPositionAndRotation()
         {
             if (playerRoot == null) return;
             
-            // Posición base: root del jugador + offset fijo
-            // NO usa ningún hueso animado
-            Vector3 desiredPosition = playerRoot.position + playerRoot.TransformDirection(cameraOffset);
+            // 1. Calcular rotación final (SOLO por input del mouse)
+            Quaternion cameraRotation = Quaternion.Euler(verticalRotation, horizontalRotation, 0f);
             
-            // Interpolación suave
-            targetPosition = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * followSpeed);
+            // 2. Punto objetivo (pivot): posición del jugador + offset en espacio local
+            Vector3 pivotPosition = playerRoot.position + playerRoot.TransformDirection(cameraOffset);
+            
+            // 3. Posición deseada de la cámara: detrás del pivot según la rotación
+            Vector3 desiredCameraPosition = pivotPosition - (cameraRotation * Vector3.forward * cameraDistance);
+            
+            // 4. Detectar colisiones con paredes
+            Vector3 finalCameraPosition = desiredCameraPosition;
+            if (enableCameraCollision)
+            {
+                Vector3 direction = desiredCameraPosition - pivotPosition;
+                float distance = direction.magnitude;
+                
+                if (Physics.SphereCast(pivotPosition, collisionRadius, direction.normalized, out RaycastHit hit, distance, collisionLayers))
+                {
+                    // Ajustar distancia si hay obstrucción
+                    finalCameraPosition = pivotPosition + direction.normalized * (hit.distance - collisionRadius);
+                }
+            }
+            
+            // 5. Aplicar shake en espacio LOCAL de la cámara
+            Vector3 shakeOffset = CalculateShakeOffset();
+            finalCameraPosition += cameraRotation * shakeOffset;
+            
+            // 6. Aplicar con suavizado
+            transform.position = Vector3.Lerp(transform.position, finalCameraPosition, Time.deltaTime * followSpeed);
+            transform.rotation = Quaternion.Slerp(transform.rotation, cameraRotation, Time.deltaTime * followSpeed);
+            
+            // 7. Hacer que la cámara siempre mire al pivot
+            transform.LookAt(pivotPosition);
         }
 
-        void UpdateZoom()
-        {
-            float targetFOV = normalFOV;
-            
-            if (isAiming)
-                targetFOV = aimFOV;
-            else if (isSprinting)
-                targetFOV = sprintFOV;
-            
-            cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFOV, Time.deltaTime * zoomSpeed);
-        }
-        
-        void ApplyProceduralShake()
+        Vector3 CalculateShakeOffset()
         {
             Vector3 shakeOffset = Vector3.zero;
             
@@ -192,8 +214,19 @@ namespace BrickOps.Players
                 shakeOffset += cameraShake.GetCurrentShakeOffset();
             }
             
-            // Aplicar: posición base + shake en espacio local
-            transform.position = targetPosition + transform.TransformDirection(shakeOffset);
+            return shakeOffset;
+        }
+
+        void UpdateZoom()
+        {
+            float targetFOV = normalFOV;
+            
+            if (isAiming)
+                targetFOV = aimFOV;
+            else if (isSprinting)
+                targetFOV = sprintFOV;
+            
+            cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFOV, Time.deltaTime * zoomSpeed);
         }
         #endregion
 
