@@ -78,12 +78,16 @@ public class UDPServer_Select : MonoBehaviour
             Log($"[UDP Server] {msg} joined from {sender}");
 
             CheckStartGame();
-        }
-        else
+        }        else
         {
             if (msg.StartsWith("PLAYER_DATA:"))
             {
                 BroadcastPlayerData(msg, sender);
+            }
+            else if (msg.StartsWith("BARRICADA_DAMAGE:"))
+            {
+                // Formato: BARRICADA_DAMAGE:{id}:{damage}
+                ProcessBarricadaDamage(msg);
             }
             else
             {
@@ -134,5 +138,31 @@ public class UDPServer_Select : MonoBehaviour
     void BroadcastPlayerData(string data, IPEndPoint sender)
     {
         Broadcast(data, sender);
+    }
+
+    void ProcessBarricadaDamage(string msg)
+    {
+        // Formato: BARRICADA_DAMAGE:{id}:{damage}
+        try
+        {
+            string[] parts = msg.Split(':');
+            if (parts.Length >= 3)
+            {
+                int barricadaId = int.Parse(parts[1]);
+                int damage = int.Parse(parts[2]);
+                
+                // Aplicar daño a la barricada en el servidor
+                if (BarricadaManager.Instance != null)
+                {
+                    BarricadaManager.Instance.ApplyDamageToBarricada(barricadaId, damage);
+                }
+                
+                Log($"[Server] Barricada {barricadaId} took {damage} damage");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Log($"[Server] Error processing barricada damage: {ex.Message}");
+        }
     }
 }

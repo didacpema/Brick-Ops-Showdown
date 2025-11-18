@@ -88,8 +88,7 @@ public class UDPClient_Select : MonoBehaviour
                 {
                     string msg = Encoding.UTF8.GetString(buffer, 0, bytes);
                     
-                    
-                    if (msg == "GAME_START")
+                      if (msg == "GAME_START")
                     {
                         AppendChat("Game is starting!");
                         Invoke("LoadGameScene", 1f);
@@ -97,6 +96,14 @@ public class UDPClient_Select : MonoBehaviour
                     else if (msg.StartsWith("PLAYER_DATA:"))
                     {
                         AppendChat("Receiving game data...");
+                    }
+                    else if (msg.StartsWith("BARRICADA_STATE:"))
+                    {
+                        // Enviar a BarricadaManager para procesar
+                        if (BarricadaManager.Instance != null)
+                        {
+                            BarricadaManager.Instance.ProcessBarricadaStateMessage(msg);
+                        }
                     }
                     else
                     {
