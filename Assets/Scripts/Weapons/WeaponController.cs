@@ -147,12 +147,12 @@ public class WeaponController : MonoBehaviour
 
         // Efectos visuales y sonoros locales
         PlayMuzzleFlash();
-        PlayShootSound();
-
-        Vector3 hitPoint;
+        PlayShootSound();        Vector3 hitPoint;
         if (didHit)
         {
             hitPoint = hit.point;
+            
+            Debug.Log($"<color=white>[WeaponController] Raycast hit: {hit.collider.gameObject.name} on layer {LayerMask.LayerToName(hit.collider.gameObject.layer)}</color>");
             
             // Aplicar daño si impactó a un jugador
             PlayerHealth targetHealth = hit.collider.GetComponent<PlayerHealth>();
@@ -165,6 +165,57 @@ public class WeaponController : MonoBehaviour
                 EventManager.Instance?.InvokePlayerHit(shooterId, targetId, damage, hitPoint);
                 
                 Debug.Log($"<color=yellow>¡Impacto! {shooterId} disparó a {targetId} por {damage} daño</color>");
+            }
+            
+            // Aplicar daño si impactó a una barricada
+            Barricada barricada = hit.collider.GetComponent<Barricada>();
+            if (barricada == null)
+            {
+                // Intentar buscar en el padre
+                barricada = hit.collider.GetComponentInParent<Barricada>();
+                if (barricada != null)
+                {
+                    Debug.Log($"<color=magenta>[WeaponController] Barricada encontrada en el padre: {hit.collider.transform.parent.name}</color>");
+                }
+            }
+            else
+            {
+                Debug.Log($"<color=magenta>[WeaponController] Barricada encontrada directamente en: {hit.collider.gameObject.name}</color>");
+            }
+            
+            if (barricada != null)
+            {
+                int barricadaDamage = Mathf.RoundToInt(damage / 2.5f); // Las barricadas reciben menos daño
+                
+                Debug.Log($"<color=cyan>¡Impacto en Barricada {barricada.GetBarricadaId()}! Daño calculado: {barricadaDamage}</color>");
+                
+                if (BarricadaManager.Instance != null)
+                {
+                    Debug.Log($"<color=green>[WeaponController] BarricadaManager encontrado. IsServer: {BarricadaManager.Instance.IsServer()}</color>");
+                    
+                    // Si somos servidor, aplicar daño directamente
+                    if (BarricadaManager.Instance.IsServer())
+                    {
+                        BarricadaManager.Instance.ApplyDamageToBarricada(barricada.GetBarricadaId(), barricadaDamage);
+                        Debug.Log($"<color=green>[WeaponController] Daño aplicado por servidor</color>");
+                    }
+                    else
+                    {
+                        // Si somos cliente, enviar mensaje al servidor
+                        SendBarricadaDamageToServer(barricada.GetBarricadaId(), barricadaDamage);
+                        Debug.Log($"<color=green>[WeaponController] Mensaje enviado al servidor</color>");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"<color=orange>[WeaponController] BarricadaManager no encontrado. Aplicando daño localmente</color>");
+                    // Fallback: aplicar daño localmente
+                    barricada.TakeDamage(barricadaDamage);
+                }
+            }
+            else
+            {
+                Debug.Log($"<color=gray>[WeaponController] No hay componente Barricada en {hit.collider.gameObject.name}</color>");
             }
             
             // Efecto de impacto
@@ -281,6 +332,36 @@ public class WeaponController : MonoBehaviour
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(muzzlePoint.position, 0.1f);
             Gizmos.DrawRay(muzzlePoint.position, muzzlePoint.forward * range);
+        }
+    }
+    #endregion
+
+    #region Server Communication
+    void SendBarricadaDamageToServer(int barricadaId, int damage)
+    {
+        // Buscar el cliente UDP y enviar mensaje
+        UDPClient_Select client = FindFirstObjectByType<UDPClient_Select>();
+        if (client != null)
+        {
+            string msg = $"BARRICADA_DAMAGE:{barricadaId}:{damage}";
+            
+            // Usar reflexión para acceder al método SendToServer
+            var sendMethod = client.GetType().GetMethod("SendToServer", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            
+            if (sendMethod != null)
+            {
+                sendMethod.Invoke(client, new object[] { msg });
+                Debug.Log($"[WeaponController] Enviando daño al servidor: {msg}");
+            }
+            else
+            {
+                Debug.LogWarning("[WeaponController] No se encontró el método SendToServer");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[WeaponController] No se encontró UDPClient_Select");
         }
     }
     #endregion
