@@ -42,9 +42,7 @@ public class Barricada : MonoBehaviour
         {
             BarricadaManager.Instance.UnregisterBarricada(barricadaId);
         }
-    }
-
-    private void InitializeBarricada()
+    }    private void InitializeBarricada()
     {
         health = maxHealth;
         piecesPerSegment = maxHealth / pieces.Length;
@@ -61,38 +59,44 @@ public class Barricada : MonoBehaviour
                 }
             }
         }
-        
-        // Verificar que las piezas están asignadas
+          // Verificar que las piezas están asignadas
         for (int i = 0; i < pieces.Length; i++)
         {
-            if (pieces[i] == null)
-            {
-                Debug.LogWarning($"[Barricada {barricadaId}] Piece {i} is not assigned!");
-            }
-            else
+            if (pieces[i] != null)
             {
                 pieces[i].SetActive(true);
                 pieceDestroyed[i] = false;
             }
         }
-        
-        Debug.Log($"[Barricada {barricadaId}] Initialized with {maxHealth} health");
+          // Asegurar que la barricada tiene un collider
+        EnsureCollider();
     }
-
-    public void TakeDamage(int amount)
+      private void EnsureCollider()
+    {
+        // Verificar si tiene collider en el objeto principal
+        Collider mainCollider = GetComponent<Collider>();
+        if (mainCollider == null)
+        {
+            // Buscar colliders en los hijos
+            Collider[] childColliders = GetComponentsInChildren<Collider>();
+            if (childColliders.Length == 0)
+            {
+                // No hay colliders, agregar uno automáticamente
+                gameObject.AddComponent<BoxCollider>();
+            }
+        }
+    }    public void TakeDamage(int amount)
     {
         if (amount <= 0) return;
 
+        int previousHealth = health;
         health = Mathf.Max(0, health - amount);
-        Debug.Log($"[Barricada {barricadaId}] TakeDamage({amount}), Health: {health}/{maxHealth}");
         OnHealthChanged();
-        
-        // Si somos servidor, notificar a través del manager
+          // Si somos servidor, notificar a través del manager
         if (BarricadaManager.Instance != null && BarricadaManager.Instance.IsServer())
         {
             BarricadaState state = GetState();
             BarricadaManager.Instance.BroadcastBarricadaState(barricadaId, state);
-            Debug.Log($"[Barricada {barricadaId}] Broadcasting state after damage");
         }
     }
 
@@ -113,9 +117,7 @@ public class Barricada : MonoBehaviour
         {
             DestroySelf();
         }
-    }
-
-    private void DestroyPiece(int index)
+    }    private void DestroyPiece(int index)
     {
         if (index < 0 || index >= pieces.Length || pieceDestroyed[index]) return;
         
@@ -124,13 +126,9 @@ public class Barricada : MonoBehaviour
         if (pieces[index] != null)
         {
             pieces[index].SetActive(false);
-            Debug.Log($"[Barricada {barricadaId}] Destroyed piece {index}");
         }
-    }
-
-    private void DestroySelf()
+    }    private void DestroySelf()
     {
-        Debug.Log($"[Barricada {barricadaId}] Destroying barricada");
         Destroy(gameObject);
     }
 

@@ -15,14 +15,11 @@ public class BarricadaManager : MonoBehaviour
             return;
         }
         Instance = this;
-    }
-
-    public void RegisterBarricada(int id, Barricada barricada)
+    }    public void RegisterBarricada(int id, Barricada barricada)
     {
         if (!barricadas.ContainsKey(id))
         {
             barricadas.Add(id, barricada);
-            Debug.Log($"[BarricadaManager] Registered barricada {id}");
         }
     }
 
@@ -31,7 +28,6 @@ public class BarricadaManager : MonoBehaviour
         if (barricadas.ContainsKey(id))
         {
             barricadas.Remove(id);
-            Debug.Log($"[BarricadaManager] Unregistered barricada {id}");
         }
     }
 
@@ -41,12 +37,9 @@ public class BarricadaManager : MonoBehaviour
         return barricada;
     }    public bool IsServer()
     {
-        // Verifica si existe un servidor UDP activo
         UDPServer_Select server = FindFirstObjectByType<UDPServer_Select>();
         return server != null;
-    }
-
-    public void BroadcastBarricadaState(int barricadaId, BarricadaState state)
+    }    public void BroadcastBarricadaState(int barricadaId, BarricadaState state)
     {
         if (!IsServer()) return;
 
@@ -55,44 +48,32 @@ public class BarricadaManager : MonoBehaviour
         {
             string stateMsg = "BARRICADA_STATE:" + barricada.StateToString(barricadaId);
             
-            // Enviar a todos los clientes a través del servidor UDP
             UDPServer_Select server = FindFirstObjectByType<UDPServer_Select>();
             if (server != null)
             {
-                // Usar reflexión para llamar al método Broadcast privado
                 var method = server.GetType().GetMethod("Broadcast", 
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (method != null)
                 {
                     method.Invoke(server, new object[] { stateMsg, null });
-                    Debug.Log($"[BarricadaManager] Broadcasting state: {stateMsg}");
                 }
             }
         }
-    }
-
-    public void ApplyBarricadaStateFromNetwork(int barricadaId, BarricadaState state)
+    }    public void ApplyBarricadaStateFromNetwork(int barricadaId, BarricadaState state)
     {
         Barricada barricada = GetBarricada(barricadaId);
         if (barricada != null)
         {
             barricada.ApplyState(state);
-            Debug.Log($"[BarricadaManager] Applied state to barricada {barricadaId}");
         }
     }
 
-    // Método para aplicar daño desde el servidor
     public void ApplyDamageToBarricada(int barricadaId, int damage)
     {
         Barricada barricada = GetBarricada(barricadaId);
         if (barricada != null)
         {
             barricada.TakeDamage(damage);
-            Debug.Log($"[BarricadaManager] Applied {damage} damage to barricada {barricadaId}");
-        }
-        else
-        {
-            Debug.LogWarning($"[BarricadaManager] Barricada {barricadaId} not found");
         }
     }
 

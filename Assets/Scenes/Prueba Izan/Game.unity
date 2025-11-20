@@ -263,6 +263,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4586062417925981251, guid: 09b7ba7ddd73fc548a79a28f7734ff6d, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 5607466398098239098, guid: 09b7ba7ddd73fc548a79a28f7734ff6d, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6024807241832345406, guid: 09b7ba7ddd73fc548a79a28f7734ff6d, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 6866475437366493062, guid: 09b7ba7ddd73fc548a79a28f7734ff6d, type: 3}
       propertyPath: m_LocalPosition.x
       value: -13.836953
@@ -306,6 +318,10 @@ PrefabInstance:
     - target: {fileID: 8471267703809505679, guid: 09b7ba7ddd73fc548a79a28f7734ff6d, type: 3}
       propertyPath: m_Name
       value: Barricada
+      objectReference: {fileID: 0}
+    - target: {fileID: 8471267703809505679, guid: 09b7ba7ddd73fc548a79a28f7734ff6d, type: 3}
+      propertyPath: m_Layer
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

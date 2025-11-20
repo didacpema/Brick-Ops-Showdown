@@ -290,12 +290,11 @@ MonoBehaviour:
   muzzleFlashPrefab: {fileID: 766667796609424318, guid: eb74a6095642f2a49a63d53e64af3e5d, type: 3}
   impactEffectPrefab: {fileID: 1845564405670952755, guid: b569e0cb9b1f1544292ca9217d2907ea, type: 3}
   bulletTracer: {fileID: 8544403530875907121, guid: cb51cb4bad8bd99409b6076a642a83dd, type: 3}
-  tracerDuration: 0.1
-  shootSound: {fileID: 0}
+  tracerDuration: 0.1  shootSound: {fileID: 0}
   impactSound: {fileID: 0}
   hitLayers:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 65
 --- !u!1 &1631909889727869740
 GameObject:
   m_ObjectHideFlags: 0
