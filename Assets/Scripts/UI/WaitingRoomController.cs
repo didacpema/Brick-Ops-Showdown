@@ -1,7 +1,5 @@
 using System;
 using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -29,9 +27,7 @@ public class WaitingRoomController : MonoBehaviour
     public Button playButton;
     public Button disconnectButton;
 
-    private Socket udpSocket;
-    private EndPoint serverEndPoint;
-    private byte[] buffer = new byte[2048];
+    private UdpTransport transport;
     private bool connected = false;
     private int myPlayerId = -1;
     private bool canStartGame = false;
@@ -77,44 +73,40 @@ public class WaitingRoomController : MonoBehaviour
 
     void ConnectToServer(IPAddress ip, string playerName)
     {
-        try
+        transport?.Close();
+        transport = new UdpTransport();
+
+        if (!transport.InitializeClient(ip, 6000))
         {
-            udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            udpSocket.Blocking = false;
-
-            serverEndPoint = new IPEndPoint(ip, 6000);
-
-            if (NetworkManager.Instance != null)
-            {
-                NetworkManager.Instance.serverIP = ip.ToString();
-                NetworkManager.Instance.playerName = playerName;
-                NetworkManager.Instance.udpSocket = udpSocket;
-                NetworkManager.Instance.serverEndPoint = serverEndPoint;
-                NetworkManager.Instance.isServer = false; // ⭐ IMPORTANTE: marcar como cliente
-            }
-
-            SendMess(playerName);
-
-            connected = true;
-            statusText.text = $"Connected to {ip}:6000";
-            statusText.color = Color.green;
-
-
-            connectionPanel.SetActive(false);
-            chatPanel.SetActive(true);
-
-            AppendChat($"Connected as {playerName}");
-            AppendChat("Waiting for players...");
+            AppendChat("ERROR: Unable to create UDP socket.");
+            return;
         }
-        catch (Exception ex)
+
+        if (NetworkManager.Instance != null)
         {
-            AppendChat($"ERROR: Connection failed - {ex.Message}");
+            NetworkManager.Instance.serverIP = ip.ToString();
+            NetworkManager.Instance.playerName = playerName;
+            NetworkManager.Instance.udpSocket = transport.Socket;
+            NetworkManager.Instance.serverEndPoint = transport.RemoteEndPoint;
+            NetworkManager.Instance.isServer = false; // ⭐ IMPORTANTE: marcar como cliente
         }
+
+        SendMess(playerName);
+
+        connected = true;
+        statusText.text = $"Connected to {ip}:6000";
+        statusText.color = Color.green;
+
+        connectionPanel.SetActive(false);
+        chatPanel.SetActive(true);
+
+        AppendChat($"Connected as {playerName}");
+        AppendChat("Waiting for players...");
     }
 
     void Update()
     {
-        if (connected && udpSocket != null)
+        if (connected && transport != null)
         {
             ReceiveMessages();
         }
@@ -122,21 +114,14 @@ public class WaitingRoomController : MonoBehaviour
 
     void ReceiveMessages()
     {
-        EndPoint from = new IPEndPoint(IPAddress.Any, 0);
+        if (transport == null)
+            return;
 
-        try
+        while (transport.TryReceive(out string msg, out EndPoint sender))
         {
-            while (udpSocket.Available > 0)
-            {
-                int bytes = udpSocket.ReceiveFrom(buffer, ref from);
-                if (bytes > 0)
-                {
-                    string msg = Encoding.UTF8.GetString(buffer, 0, bytes);
-                    HandleMessage(msg);
-                }
-            }
+            if (!string.IsNullOrEmpty(msg))
+                HandleMessage(msg);
         }
-        catch (SocketException) { }
     }
 
     void HandleMessage(string msg)
@@ -185,17 +170,9 @@ public class WaitingRoomController : MonoBehaviour
 
     void SendMess(string msg)
     {
-        if (udpSocket == null || serverEndPoint == null) return;
+        if (transport == null || transport.RemoteEndPoint == null) return;
 
-        try
-        {
-            byte[] data = Encoding.UTF8.GetBytes(msg);
-            udpSocket.SendTo(data, serverEndPoint);
-        }
-        catch (Exception ex)
-        {
-            AppendChat($"ERROR: Send failed - {ex.Message}");
-        }
+        transport.Send(msg, transport.RemoteEndPoint);
     }
 
     void SendChatMessage()
@@ -240,7 +217,7 @@ public class WaitingRoomController : MonoBehaviour
     void OnDisconnect()
     {
         connected = false;
-        udpSocket?.Close();
+        transport?.Close();
 
         if (NetworkManager.Instance != null)
         {
@@ -279,6 +256,6 @@ public class WaitingRoomController : MonoBehaviour
     void OnApplicationQuit()
     {
         connected = false;
-        udpSocket?.Close();
+        transport?.Close();
     }
 }

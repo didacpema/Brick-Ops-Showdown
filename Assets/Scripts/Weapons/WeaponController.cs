@@ -162,10 +162,10 @@ public class WeaponController : MonoBehaviour
                 barricada.TakeDamage(barricadaDamage);
                 
                 // Si hay manager y somos servidor, sincronizar
-                if (BarricadaManager.Instance != null && BarricadaManager.Instance.IsServer())
+                if (BarricadaManager.Instance?.IsServer() == true)
                 {
                     BarricadaState state = barricada.GetState();
-                    BarricadaManager.Instance.BroadcastBarricadaState(barricada.GetBarricadaId(), state);
+                    BarricadaManager.Instance.BroadcastBarricadaState(state);
                 }
             }
             else
@@ -300,22 +300,6 @@ public class WeaponController : MonoBehaviour
     #endregion
 
     #region Server Communication
-    void SendBarricadaDamageToServer(int barricadaId, int damage)
-    {
-        // Buscar el cliente UDP y enviar mensaje
-        UDPClient_Select client = FindFirstObjectByType<UDPClient_Select>();
-        if (client != null)
-        {
-            string msg = $"BARRICADA_DAMAGE:{barricadaId}:{damage}";
-            
-            // Usar reflexión para acceder al método SendToServer
-            var sendMethod = client.GetType().GetMethod("SendToServer", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-              if (sendMethod != null)
-            {
-                sendMethod.Invoke(client, new object[] { msg });
-            }
-        }
-    }
+
     #endregion
 }

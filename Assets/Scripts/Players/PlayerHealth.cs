@@ -1,4 +1,5 @@
 using BrickOps.Core;
+using BrickOps.Players;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -212,15 +213,19 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth = maxHealth;
         isDead = false;
-        
-        // Reactivar el jugador
+
+        Vector3 spawnPos = PlayerManager.Instance?.GetSpawnPosition(playerId) ?? Vector3.zero;
+
+        // Reactivar el jugador y reposicionarlo
         gameObject.SetActive(true);
-        
-        // Usar EventManager para respawn
-        EventManager.Instance?.InvokePlayerRespawned(playerId, Vector3.zero);
-        
+        transform.position = spawnPos;
+        transform.rotation = Quaternion.identity;
+
+        // Usar EventManager para respawn con posición real
+        EventManager.Instance?.InvokePlayerRespawned(playerId, spawnPos);
+
         UpdateHealthBar();
-        Debug.Log($"<color=green>✓ Player {playerId} respawneado</color>");
+        Debug.Log($"<color=green>✓ Player {playerId} respawneado en {spawnPos}</color>");
     }
     #endregion
 }

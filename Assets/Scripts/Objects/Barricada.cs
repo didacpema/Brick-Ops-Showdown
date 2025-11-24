@@ -3,11 +3,15 @@ using UnityEngine;
 [System.Serializable]
 public class BarricadaState
 {
+    public int barricadaId;
     public int health;
     public bool[] pieceDestroyed;
 
-    public BarricadaState(int health, bool[] pieceDestroyed)
+    public BarricadaState() {}
+
+    public BarricadaState(int barricadaId, int health, bool[] pieceDestroyed)
     {
+        this.barricadaId = barricadaId;
         this.health = health;
         this.pieceDestroyed = pieceDestroyed;
     }
@@ -21,184 +25,151 @@ public class Barricada : MonoBehaviour
     [SerializeField] private GameObject[] pieces = new GameObject[3];
     
     private int health;
-    private bool[] pieceDestroyed = new bool[3];
+    private bool[] pieceDestroyed;
     private int piecesPerSegment;
 
     void Start()
     {
         InitializeBarricada();
-        
-        // Registrarse en el manager
-        if (BarricadaManager.Instance != null)
-        {
-            BarricadaManager.Instance.RegisterBarricada(barricadaId, this);
-        }
+        BarricadaManager.Instance?.RegisterBarricada(barricadaId, this);
     }
 
     private void OnDestroy()
     {
-        // Desregistrarse del manager
-        if (BarricadaManager.Instance != null)
-        {
-            BarricadaManager.Instance.UnregisterBarricada(barricadaId);
-        }
-    }    private void InitializeBarricada()
+        BarricadaManager.Instance?.UnregisterBarricada(barricadaId);
+    }
+
+    private void InitializeBarricada()
     {
         health = maxHealth;
-        piecesPerSegment = maxHealth / pieces.Length;
-        
-        // Si pieces está vacío, intentar obtener los hijos
-        if (pieces[0] == null || pieces[1] == null || pieces[2] == null)
-        {
-            Transform piecesParent = transform.Find("Pieces");
-            if (piecesParent != null && piecesParent.childCount >= 3)
-            {
-                for (int i = 0; i < 3 && i < piecesParent.childCount; i++)
-                {
-                    pieces[i] = piecesParent.GetChild(i).gameObject;
-                }
-            }
-        }
-          // Verificar que las piezas están asignadas
-        for (int i = 0; i < pieces.Length; i++)
-        {
-            if (pieces[i] != null)
-            {
-                pieces[i].SetActive(true);
-                pieceDestroyed[i] = false;
-            }
-        }
-          // Asegurar que la barricada tiene un collider
+        EnsurePieceArray();
+
+        int segmentCount = Mathf.Max(1, pieceDestroyed.Length);
+        piecesPerSegment = Mathf.Max(1, maxHealth / segmentCount);
+
+        AssignPiecesFromChildren();
+        ResetPieces();
         EnsureCollider();
     }
-      private void EnsureCollider()
+
+    private void EnsurePieceArray(int minLength = 0)
     {
-        // Verificar si tiene collider en el objeto principal
-        Collider mainCollider = GetComponent<Collider>();
-        if (mainCollider == null)
+        int targetLength = Mathf.Max(pieces.Length, minLength);
+        if (pieceDestroyed == null || pieceDestroyed.Length != targetLength)
         {
-            // Buscar colliders en los hijos
-            Collider[] childColliders = GetComponentsInChildren<Collider>();
-            if (childColliders.Length == 0)
-            {
-                // No hay colliders, agregar uno automáticamente
-                gameObject.AddComponent<BoxCollider>();
-            }
+            pieceDestroyed = new bool[targetLength];
         }
-    }    public void TakeDamage(int amount)
+    }
+
+    private void ResetPieces()
+    {
+        EnsurePieceArray();
+
+        for (int i = 0; i < pieces.Length; i++)
+        {
+            pieceDestroyed[i] = false;
+            if (pieces[i] != null)
+                pieces[i].SetActive(true);
+        }
+    }
+
+    private void AssignPiecesFromChildren()
+    {
+        Transform piecesParent = transform.Find("Pieces");
+        if (piecesParent == null)
+            return;
+
+        int assignCount = Mathf.Min(pieces.Length, piecesParent.childCount);
+        for (int i = 0; i < assignCount; i++)
+        {
+            if (pieces[i] == null)
+                pieces[i] = piecesParent.GetChild(i).gameObject;
+        }
+    }
+
+    private void EnsureCollider()
+    {
+        if (GetComponent<Collider>() != null) return;
+        if (GetComponentInChildren<Collider>() != null) return;
+        gameObject.AddComponent<BoxCollider>();
+    }
+
+    public void TakeDamage(int amount)
     {
         if (amount <= 0) return;
 
         int previousHealth = health;
         health = Mathf.Max(0, health - amount);
+
+        if (health == previousHealth) return;
+
         OnHealthChanged();
-          // Si somos servidor, notificar a través del manager
-        if (BarricadaManager.Instance != null && BarricadaManager.Instance.IsServer())
+
+        if (BarricadaManager.Instance?.IsServer() == true)
         {
-            BarricadaState state = GetState();
-            BarricadaManager.Instance.BroadcastBarricadaState(barricadaId, state);
+            BarricadaManager.Instance.BroadcastBarricadaState(GetState());
         }
     }
 
     private void OnHealthChanged()
     {
-        // Calcular qué piezas deben estar destruidas
-        for (int i = 0; i < pieces.Length; i++)
+        for (int i = 0; i < pieceDestroyed.Length; i++)
         {
             int pieceThreshold = maxHealth - (piecesPerSegment * (i + 1));
-            if (health <= pieceThreshold && !pieceDestroyed[i])
+            if (health <= pieceThreshold)
             {
                 DestroyPiece(i);
             }
         }
 
-        // Si la salud es 0, destruir toda la barricada
         if (health <= 0)
         {
             DestroySelf();
         }
-    }    private void DestroyPiece(int index)
+    }
+
+    private void DestroyPiece(int index)
     {
-        if (index < 0 || index >= pieces.Length || pieceDestroyed[index]) return;
-        
+        if (index < 0 || index >= pieceDestroyed.Length || pieceDestroyed[index]) return;
+
         pieceDestroyed[index] = true;
-        
-        if (pieces[index] != null)
-        {
+        if (index < pieces.Length && pieces[index] != null)
             pieces[index].SetActive(false);
-        }
-    }    private void DestroySelf()
+    }
+
+    private void DestroySelf()
     {
         Destroy(gameObject);
     }
 
     public BarricadaState GetState()
     {
-        return new BarricadaState(health, (bool[])pieceDestroyed.Clone());
+        bool[] snapshot = pieceDestroyed != null ? (bool[])pieceDestroyed.Clone() : new bool[0];
+        return new BarricadaState(barricadaId, health, snapshot);
     }
 
     public void ApplyState(BarricadaState state)
     {
         if (state == null) return;
-        
-        // Actualizar salud
-        health = state.health;
-        
-        // Actualizar piezas destruidas
-        for (int i = 0; i < pieceDestroyed.Length && i < state.pieceDestroyed.Length; i++)
+
+        health = Mathf.Clamp(state.health, 0, maxHealth);
+
+        bool[] incoming = state.pieceDestroyed ?? new bool[0];
+
+        EnsurePieceArray(incoming.Length);
+
+        for (int i = 0; i < pieceDestroyed.Length; i++)
         {
-            if (state.pieceDestroyed[i] && !pieceDestroyed[i])
-            {
-                pieceDestroyed[i] = true;
-                DestroyPiece(i);
-            }
+            bool destroyed = i < incoming.Length && incoming[i];
+            if (pieceDestroyed[i] == destroyed) continue;
+            pieceDestroyed[i] = destroyed;
+            if (i < pieces.Length && pieces[i] != null)
+                pieces[i].SetActive(!destroyed);
         }
-        
-        // Verificar si debe autodestruirse
+
         if (health <= 0)
         {
             DestroySelf();
         }
-        
-        Debug.Log($"[Barricada {barricadaId}] Applied state: Health {health}/{maxHealth}");
-    }
-
-    public string StateToString(int id)
-    {
-        string piecesStr = string.Join(",", pieceDestroyed);
-        return $"BARRICADA|{id}|{health}|{piecesStr}";
-    }
-
-    public static BarricadaState ParseStateFromString(string data)
-    {
-        // Formato: "BARRICADA|id|health|piece0,piece1,piece2"
-        string[] parts = data.Split('|');
-        if (parts.Length < 4) return null;
-
-        int health = int.Parse(parts[2]);
-        string[] piecesStr = parts[3].Split(',');
-        bool[] pieces = new bool[piecesStr.Length];
-        
-        for (int i = 0; i < piecesStr.Length; i++)
-        {
-            pieces[i] = bool.Parse(piecesStr[i]);
-        }
-
-        return new BarricadaState(health, pieces);
-    }
-
-    public int GetBarricadaId()
-    {
-        return barricadaId;
-    }
-
-    public int GetHealth()
-    {
-        return health;
-    }
-
-    public int GetMaxHealth()
-    {
-        return maxHealth;
     }
 }

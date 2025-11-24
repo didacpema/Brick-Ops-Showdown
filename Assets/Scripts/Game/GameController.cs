@@ -413,6 +413,11 @@ public class GameController : MonoBehaviour
                 ProcessDeathData(data);
                 break;
 
+            case NetworkProtocol.PLAYER_RESPAWN:
+                BroadcastToClients(message, sender);
+                ProcessRespawnData(data);
+                break;
+
             case NetworkProtocol.START_GAME:
                 if (serverClients.Count >= 1)
                 {
@@ -583,6 +588,32 @@ public class GameController : MonoBehaviour
             Debug.LogError($"[GameController] Send death failed: {ex.Message}");
         }
     }
+
+    public void SendPlayerRespawn(int playerId, Vector3 position, float rotation)
+    {
+        if (udpSocket == null)
+            return;
+
+        try
+        {
+            RespawnData respawnData = new RespawnData(playerId, position, rotation);
+            string message = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_RESPAWN, respawnData);
+            byte[] data = NetworkProtocol.MessageToBytes(message);
+
+            if (isServerHost)
+            {
+                BroadcastToClients(message);
+            }
+            else
+            {
+                udpSocket.SendTo(data, serverEndPoint);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GameController] Send respawn failed: {ex.Message}");
+        }
+    }
     #endregion
 
     #region Network - Receiving
@@ -638,6 +669,10 @@ public class GameController : MonoBehaviour
 
             case NetworkProtocol.DEATH_DATA:
                 ProcessDeathData(data);
+                break;
+
+            case NetworkProtocol.PLAYER_RESPAWN:
+                ProcessRespawnData(data);
                 break;
 
             case NetworkProtocol.SERVER_CLOSED:
@@ -722,6 +757,31 @@ public class GameController : MonoBehaviour
         }
     }
 
+    void ProcessRespawnData(string jsonData)
+    {
+        RespawnData respawnData = NetworkProtocol.DeserializeFromJson<RespawnData>(jsonData);
+
+        if (respawnData == null)
+            return;
+
+        if (!NetworkProtocol.IsValidPlayerId(respawnData.playerId))
+            return;
+
+        Vector3 position = respawnData.GetPosition();
+        float rotation = respawnData.rotY;
+
+        GameObject player = PlayerManager.Instance?.GetPlayer(respawnData.playerId);
+        if (player != null)
+        {
+            player.SetActive(true);
+            player.transform.position = position;
+            player.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+        }
+
+        PlayerState state = new PlayerState(respawnData.playerId, position, rotation);
+        PlayerManager.Instance?.UpdatePlayerState(respawnData.playerId, state);
+    }
+
     void HandleServerClosed()
     {
         Debug.Log("[GameController] Server closed connection");
@@ -770,6 +830,8 @@ public class GameController : MonoBehaviour
                 localPlayer.transform.position = position;
                 localPlayer.transform.rotation = Quaternion.identity;
             }
+
+            SendPlayerRespawn(playerId, position, 0f);
         }
         
         Debug.Log($"[GameController] Player {playerId} respawned at {position}");

@@ -206,12 +206,6 @@ public class InputManager : MonoBehaviour
             mouseX += keyboardRotateSpeed * Time.deltaTime;
             playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
         }
-
-        // Kill any residual angular velocity from physics
-        if (rb != null)
-        {
-            rb.angularVelocity = Vector3.zero;
-        }
     }
 
     void CaptureJumpInput()

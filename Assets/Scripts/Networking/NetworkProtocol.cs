@@ -14,13 +14,12 @@ namespace BrickOps.Networking
         public const string PLAYER_DATA = "PLAYER_DATA";
         public const string SHOOT_DATA = "SHOOT_DATA";
         public const string DEATH_DATA = "DEATH_DATA";
+        public const string PLAYER_RESPAWN = "PLAYER_RESPAWN";
         public const string PLAYER_ID = "PLAYER_ID";
         public const string READY_TO_START = "READY_TO_START";
         public const string GAME_START = "GAME_START";
         public const string START_GAME = "START_GAME";
         public const string SERVER_CLOSED = "SERVER_CLOSED";
-        public const string DISCONNECT = "DISCONNECT";
-        public const string HEARTBEAT = "HEARTBEAT";
         #endregion
 
         #region Message Building

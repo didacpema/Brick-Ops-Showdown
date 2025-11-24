@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -21,8 +20,7 @@ public class ServerSceneController : MonoBehaviour
     public int port = 6000;
     private const int MAX_PLAYERS = 2;
 
-    private Socket udpSocket;
-    private byte[] buffer = new byte[2048];
+    private UdpTransport transport;
 
     private Dictionary<IPEndPoint, PlayerInfo> players = new Dictionary<IPEndPoint, PlayerInfo>();
     private List<IPEndPoint> clients = new List<IPEndPoint>();
@@ -49,9 +47,20 @@ public class ServerSceneController : MonoBehaviour
 
     void StartServer()
     {
-        udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        udpSocket.Blocking = false;
-        udpSocket.Bind(new IPEndPoint(IPAddress.Any, port));
+        transport?.Close();
+        transport = new UdpTransport();
+
+        if (!transport.InitializeServer(port))
+        {
+            Log("Failed to bind UDP socket.");
+            return;
+        }
+
+        if (NetworkManager.Instance != null)
+        {
+            NetworkManager.Instance.udpSocket = transport.Socket;
+            NetworkManager.Instance.serverEndPoint = transport.Socket?.LocalEndPoint;
+        }
 
         string localIP = GetLocalIPAddress();
         serverIPText.text = $"Server IP: {localIP}\nPort: {port}\n\nClients should connect to this IP";
@@ -63,23 +72,23 @@ public class ServerSceneController : MonoBehaviour
 
     void Update()
     {
-        ReceiveMessages();
+        if (transport != null)
+            ReceiveMessages();
     }
 
     void ReceiveMessages()
     {
-        EndPoint senderEndPoint = new IPEndPoint(IPAddress.Any, 0);
+        if (transport == null)
+            return;
 
-        try
+        while (transport.TryReceive(out string msg, out EndPoint sender))
         {
-            while (udpSocket.Available > 0)
-            {
-                int bytes = udpSocket.ReceiveFrom(buffer, ref senderEndPoint);
-                string msg = Encoding.UTF8.GetString(buffer, 0, bytes).Trim();
-                ProcessMessage((IPEndPoint)senderEndPoint, msg);
-            }
+            string trimmed = msg?.Trim();
+            if (trimmed == null)
+                continue;
+
+            ProcessMessage(sender as IPEndPoint, trimmed);
         }
-        catch (SocketException) { }
     }
 
     void ProcessMessage(IPEndPoint sender, string msg)
@@ -171,20 +180,20 @@ public class ServerSceneController : MonoBehaviour
 
     void SendTo(IPEndPoint target, string msg)
     {
-        byte[] data = Encoding.UTF8.GetBytes(msg);
-        try { udpSocket.SendTo(data, target); }
-        catch (Exception ex) { Log($"Error sending to {target}: {ex.Message}"); }
+        if (transport == null || target == null)
+            return;
+
+        transport.Send(msg, target);
     }
 
     void Broadcast(string msg, IPEndPoint exclude = null)
     {
-        byte[] data = Encoding.UTF8.GetBytes(msg);
-        foreach (var client in clients)
-        {
-            if (exclude != null && client.Equals(exclude)) continue;
-            try { udpSocket.SendTo(data, client); }
-            catch { }
-        }
+        transport?.Broadcast(msg, clients, exclude);
+    }
+
+    public void BroadcastToClients(string msg, IPEndPoint exclude = null)
+    {
+        Broadcast(msg, exclude);
     }
 
     void UpdatePlayerCount()
@@ -231,7 +240,7 @@ public class ServerSceneController : MonoBehaviour
     void StopServer()
     {
         Broadcast("SERVER_CLOSED");
-        udpSocket?.Close();
+        transport?.Close();
         
         if (NetworkManager.Instance != null)
         {
@@ -243,6 +252,6 @@ public class ServerSceneController : MonoBehaviour
 
     void OnApplicationQuit()
     {
-        udpSocket?.Close();
+        transport?.Close();
     }
 }
