@@ -219,11 +219,20 @@ public class InputManager : MonoBehaviour
     void CaptureAimingInput()
     {
         isAiming = Input.GetMouseButton(1);
+        
+        // Informar al arma del estado de apuntado
+        if (weaponController != null)
+        {
+            weaponController.SetAiming(isAiming);
+        }
     }
 
     void CaptureShootingInput()
     {
         if (weaponController == null) return;
+        
+        // Actualizar estado de movimiento en el arma
+        weaponController.SetMovementState(isMoving, isRunning);
 
         if (Input.GetMouseButtonDown(0) && Time.time >= lastShootTime + shootCooldown)
         {

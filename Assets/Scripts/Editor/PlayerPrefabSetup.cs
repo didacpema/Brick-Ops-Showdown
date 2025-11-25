@@ -147,7 +147,11 @@ namespace BrickOps.Editor
                 weapon.damage = 25f;
                 weapon.range = 100f;
                 weapon.fireRate = 0.15f;
-                weapon.spread = 0.02f;
+                weapon.standingSpread = 0.2f;
+                weapon.standingAimSpread = 0.005f;
+                weapon.walkingSpread = 0.04f;
+                weapon.walkingAimSpread = 0.015f;
+
                 Debug.Log("✓ Added WeaponController");
             }
 

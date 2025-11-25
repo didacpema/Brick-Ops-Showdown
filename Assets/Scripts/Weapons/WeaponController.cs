@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections;
-using BrickOps.Core;    
+using BrickOps.Core;
 /// <summary>
 /// Controla el disparo de armas usando Raycast
 /// Debe estar en el prefab del jugador
@@ -14,6 +14,9 @@ public class WeaponController : MonoBehaviour
     
     [Tooltip("Cámara para calcular dirección del disparo")]
     public Camera playerCamera;
+    
+    [Tooltip("GameObject que sirve como puntero para la dirección de disparo (se posiciona dinámicamente)")]
+    public Transform aimPointer;
 
     [Header("Configuración del Arma")]
     [Tooltip("Daño por disparo")]
@@ -25,8 +28,28 @@ public class WeaponController : MonoBehaviour
     [Tooltip("Tiempo entre disparos (en segundos)")]
     public float fireRate = 0.15f;
     
-    [Tooltip("Dispersión del arma (0 = preciso, 0.1 = impreciso)")]
-    public float spread = 0.02f;
+    [Header("Spread Settings")]
+    [Tooltip("Dispersión al disparar quieto sin apuntar")]
+    public float standingSpread = 0.02f;
+    
+    [Tooltip("Dispersión al disparar quieto apuntando")]
+    public float standingAimSpread = 0.005f;
+    
+    [Tooltip("Dispersión al disparar andando sin apuntar")]
+    public float walkingSpread = 0.04f;
+    
+    [Tooltip("Dispersión al disparar andando apuntando")]
+    public float walkingAimSpread = 0.015f;
+    
+    [Tooltip("Dispersión al disparar corriendo (no se puede apuntar)")]
+    public float runningSpread = 0.08f;
+    
+    [Header("Aim Pointer Settings")]
+    [Tooltip("Distancia por defecto del puntero si no hay obstáculos")]
+    public float defaultPointerDistance = 50f;
+    
+    [Tooltip("Crear automáticamente el aim pointer si no está asignado")]
+    public bool autoCreatePointer = false;
 
     [Header("Efectos Visuales")]
     [Tooltip("Prefab del efecto de disparo (muzzle flash)")]
@@ -55,6 +78,9 @@ public class WeaponController : MonoBehaviour
     private AudioSource audioSource;
     private PlayerHealth playerHealth; // Para identificar al dueño
     private bool isLocalPlayer = false;
+    private bool isAiming = false;
+    private bool isMoving = false;
+    private bool isRunning = false;
     #endregion
 
     #region Unity Lifecycle
@@ -77,6 +103,16 @@ public class WeaponController : MonoBehaviour
         {
             Debug.LogError($"[WeaponController] Muzzle Point no asignado en {gameObject.name}!");
         }
+        
+        // Crear aim pointer si está habilitado y no existe
+        if (autoCreatePointer && aimPointer == null)
+        {
+            GameObject pointer = new GameObject("AimPointer");
+            aimPointer = pointer.transform;
+            aimPointer.SetParent(transform);
+            aimPointer.localPosition = Vector3.forward * defaultPointerDistance;
+            Debug.Log($"[WeaponController] Aim Pointer creado automáticamente");
+        }
     }
     #endregion
 
@@ -89,6 +125,23 @@ public class WeaponController : MonoBehaviour
         playerCamera = cam;
         isLocalPlayer = true;
         Debug.Log($"[WeaponController] Inicializado para jugador local");
+    }
+
+    /// <summary>
+    /// Actualiza el estado de apuntado
+    /// </summary>
+    public void SetAiming(bool aiming)
+    {
+        isAiming = aiming;
+    }
+    
+    /// <summary>
+    /// Actualiza el estado de movimiento
+    /// </summary>
+    public void SetMovementState(bool moving, bool running)
+    {
+        isMoving = moving;
+        isRunning = running;
     }
 
     /// <summary>
@@ -207,29 +260,58 @@ public class WeaponController : MonoBehaviour
     {
         Vector3 direction;
         
-        if (playerCamera != null)
+        // PRIORIDAD 1: Usar el aim pointer si existe
+        if (aimPointer != null && muzzlePoint != null)
         {
-            // Disparar desde el centro de la pantalla (más preciso para FPS)
+            // Dirección desde el muzzle hacia el aim pointer
+            direction = (aimPointer.position - muzzlePoint.position).normalized;
+        }
+        // PRIORIDAD 2: Dirección de la cámara
+        else if (playerCamera != null)
+        {
             direction = playerCamera.transform.forward;
         }
+        // PRIORIDAD 3: Dirección del muzzle point
         else if (muzzlePoint != null)
         {
-            // Fallback: disparar en la dirección del muzzle
             direction = muzzlePoint.forward;
         }
+        // PRIORIDAD 4: Dirección del transform del arma
         else
         {
             direction = transform.forward;
         }
 
-        // Añadir dispersión
-        if (spread > 0f)
+        // Añadir dispersión (depende de movimiento y apuntado)
+        float currentSpread = CalculateCurrentSpread();
+        if (currentSpread > 0f)
         {
-            direction += Random.insideUnitSphere * spread;
+            direction += Random.insideUnitSphere * currentSpread;
             direction.Normalize();
         }
 
         return direction;
+    }
+    
+    /// <summary>
+    /// Calcula la dispersión actual según el estado del jugador
+    /// </summary>
+    float CalculateCurrentSpread()
+    {
+        // Corriendo: máxima dispersión (no se puede apuntar mientras corres)
+        if (isRunning)
+        {
+            return runningSpread;
+        }
+        
+        // Andando
+        if (isMoving)
+        {
+            return isAiming ? walkingAimSpread : walkingSpread;
+        }
+        
+        // Quieto (parado)
+        return isAiming ? standingAimSpread : standingSpread;
     }
     #endregion
 

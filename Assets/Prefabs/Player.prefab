@@ -102,6 +102,37 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!1 &174728652731632548
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2299306487092266934}
+  m_Layer: 0
+  m_Name: Target
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2299306487092266934
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 174728652731632548}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 50}
+  m_LocalScale: {x: 0.11666973, y: 0.11666973, z: 0.11666973}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6171656063711035281}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &263655279891804507
 GameObject:
   m_ObjectHideFlags: 0
@@ -258,10 +289,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   muzzlePoint: {fileID: 5054053038973749538}
   playerCamera: {fileID: 3626367495825250223}
+  aimPointer: {fileID: 2299306487092266934}
   damage: 25
   range: 100
   fireRate: 0.15
-  spread: 0.02
+  standingSpread: 0.02
+  standingAimSpread: 0.005
+  walkingSpread: 0.04
+  walkingAimSpread: 0.015
+  runningSpread: 0.08
+  defaultPointerDistance: 50
+  autoCreatePointer: 1
   muzzleFlashPrefab: {fileID: 766667796609424318, guid: eb74a6095642f2a49a63d53e64af3e5d, type: 3}
   impactEffectPrefab: {fileID: 1845564405670952755, guid: b569e0cb9b1f1544292ca9217d2907ea, type: 3}
   bulletTracer: {fileID: 8544403530875907121, guid: cb51cb4bad8bd99409b6076a642a83dd, type: 3}
@@ -817,7 +855,8 @@ Transform:
   m_LocalPosition: {x: 1.221, y: 1.96, z: -3.99}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 2299306487092266934}
   m_Father: {fileID: 2388141480348728957}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &3626367495825250223
