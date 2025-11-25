@@ -24,17 +24,15 @@ namespace BrickOps.Players
         [Range(1f, 30f)]
         public float followSpeed = 10f;
 
-        [Header("Rotation Settings")]
-        [Tooltip("Sensibilidad del mouse")]
-        public float mouseSensitivity = 2f;
+    [Header("Rotation Settings")]
+    [Tooltip("Sensibilidad del mouse")]
+    public float mouseSensitivity = 2f;
 
-        [Tooltip("Ángulo máximo hacia arriba")]
-        public float maxVerticalAngle = 80f;
+    [Tooltip("Ángulo máximo hacia arriba (debe coincidir con TorsoAimController)")]
+    public float maxVerticalAngle = 60f;
 
-        [Tooltip("Ángulo máximo hacia abajo")]
-        public float minVerticalAngle = -80f;
-
-        [Header("Camera Collision")]
+    [Tooltip("Ángulo máximo hacia abajo (debe coincidir con TorsoAimController)")]
+    public float minVerticalAngle = -40f;        [Header("Camera Collision")]
         [Tooltip("Activar colisión de cámara con obstáculos")]
         public bool enableCameraCollision = true;
         

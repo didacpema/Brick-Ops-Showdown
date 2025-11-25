@@ -207,15 +207,15 @@ public class WeaponController : MonoBehaviour
     {
         Vector3 direction;
         
-        if (muzzlePoint != null)
-        {
-            // Fallback: disparar en la dirección del muzzle
-            direction = muzzlePoint.forward;
-        }
-        else if (playerCamera != null)
+        if (playerCamera != null)
         {
             // Disparar desde el centro de la pantalla (más preciso para FPS)
             direction = playerCamera.transform.forward;
+        }
+        else if (muzzlePoint != null)
+        {
+            // Fallback: disparar en la dirección del muzzle
+            direction = muzzlePoint.forward;
         }
         else
         {

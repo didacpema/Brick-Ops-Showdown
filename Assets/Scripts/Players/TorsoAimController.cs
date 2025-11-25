@@ -8,12 +8,13 @@ namespace BrickOps.Players
     /// </summary>
     public class TorsoAimController : MonoBehaviour
     {
-        #region Inspector Variables
-        [Header("Torso Reference")]
-        [Tooltip("Referencia al hueso TorsoI (padre de brazos, arma y cabeza)")]
-        public Transform torsoTransform;
+    #region Inspector Variables
+    [Header("Torso Reference")]
+    [Tooltip("Referencia al hueso TorsoI (padre de brazos, arma y cabeza)")]
+    public Transform torsoTransform;
 
-        [Header("Rotation Settings")]
+    [Tooltip("Referencia al Transform raíz del jugador (para pivote global)")]
+    public Transform playerRootTransform;        [Header("Rotation Settings")]
         [Tooltip("Ángulo máximo de rotación hacia arriba (grados)")]
         [Range(0f, 90f)]
         public float maxUpAngle = 60f;
@@ -38,14 +39,12 @@ namespace BrickOps.Players
         public bool showGizmos = true;
         #endregion
 
-        #region Private Variables
-        private CameraController cameraController;
-        private Quaternion initialTorsoRotation;
-        private float currentTorsoAngle = 0f;
-        private bool isInitialized = false;
-        #endregion
-
-        #region Initialization
+    #region Private Variables
+    private CameraController cameraController;
+    private Quaternion initialTorsoRotation;
+    private float currentTorsoAngle = 0f;
+    private bool isInitialized = false;
+    #endregion        #region Initialization
         void Start()
         {
             Initialize();
@@ -53,28 +52,31 @@ namespace BrickOps.Players
 
         public void Initialize()
         {
-            // Validar torso
-            if (torsoTransform == null)
-            {
-                Debug.LogError("[TorsoAimController] ❌ TorsoI Transform no asignado!");
-                return;
-            }
+        // Validar torso
+        if (torsoTransform == null)
+        {
+            Debug.LogError("[TorsoAimController] ❌ TorsoI Transform no asignado!");
+            return;
+        }
 
-            // Buscar CameraController
-            cameraController = GetComponentInChildren<CameraController>();
-            if (cameraController == null)
-            {
-                Debug.LogWarning("[TorsoAimController] ⚠ CameraController no encontrado!");
-                return;
-            }
+        // Buscar o asignar player root
+        if (playerRootTransform == null)
+        {
+            playerRootTransform = transform;
+        }
 
-            // Guardar rotación inicial del torso
-            initialTorsoRotation = torsoTransform.localRotation;
+        // Buscar CameraController
+        cameraController = GetComponentInChildren<CameraController>();
+        if (cameraController == null)
+        {
+            Debug.LogWarning("[TorsoAimController] ⚠ CameraController no encontrado!");
+            return;
+        }
 
-            isInitialized = true;
+        // Guardar rotación inicial del torso
+        initialTorsoRotation = torsoTransform.localRotation;            isInitialized = true;
             Debug.Log("[TorsoAimController] ✓ Inicializado correctamente");
         }
-        #endregion
 
         #region Unity Lifecycle
         void LateUpdate()
@@ -101,14 +103,13 @@ namespace BrickOps.Players
             // Clampear el ángulo del torso
             targetAngle = Mathf.Clamp(targetAngle, -maxDownAngle, maxUpAngle);
 
-            // Interpolar suavemente hacia el ángulo objetivo
-            currentTorsoAngle = Mathf.Lerp(currentTorsoAngle, targetAngle, Time.deltaTime * rotationSpeed);
+        // Interpolar suavemente hacia el ángulo objetivo
+        currentTorsoAngle = Mathf.Lerp(currentTorsoAngle, targetAngle, Time.deltaTime * rotationSpeed);
 
-            // Aplicar rotación al torso (rotación local en X)
-            Quaternion targetRotation = initialTorsoRotation * Quaternion.Euler(currentTorsoAngle, 0f, 0f);
-            torsoTransform.localRotation = targetRotation;
-
-            // Debug opcional
+        // Aplicar rotación en el eje X GLOBAL del player (no del hueso)
+        // Primero aplicar la rotación inicial, luego rotar en el espacio WORLD
+        torsoTransform.localRotation = initialTorsoRotation;
+        torsoTransform.Rotate(playerRootTransform.right, currentTorsoAngle, Space.World);            // Debug opcional
             if (showDebug)
             {
                 Debug.Log($"[TorsoAim] Camera: {cameraAngle:F1}° | Torso: {currentTorsoAngle:F1}° | Target: {targetAngle:F1}°");

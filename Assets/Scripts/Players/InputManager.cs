@@ -287,8 +287,11 @@ public class InputManager : MonoBehaviour
             return;
         }
 
-        // Raycast desde el centro del jugador hacia abajo
-        if (Physics.Raycast(playerTransform.position, Vector3.down, out RaycastHit hit, 
+        // SphereCast desde el centro del jugador hacia abajo (mejor para superficies irregulares)
+        float sphereRadius = 0.3f; // Radio de la esfera para detectar el suelo
+        Vector3 sphereOrigin = playerTransform.position + Vector3.up * sphereRadius;
+        
+        if (Physics.SphereCast(sphereOrigin, sphereRadius, Vector3.down, out RaycastHit hit, 
             groundCheckDistance, groundLayers))
         {
             float verticalVelocity = rb.linearVelocity.y;
@@ -297,7 +300,7 @@ public class InputManager : MonoBehaviour
             // Está en el suelo si:
             // 1. La distancia es pequeña Y no está subiendo rápido
             // 2. O está cayendo y cerca del suelo
-            bool isNearGround = distanceToGround < 0.2f;
+            bool isNearGround = distanceToGround < 0.3f;
             bool notMovingUpFast = verticalVelocity < 1f;
             
             isGrounded = isNearGround && notMovingUpFast;
@@ -312,12 +315,19 @@ public class InputManager : MonoBehaviour
     {
         if (playerTransform == null) return;
 
+        float sphereRadius = 0.3f;
+        Vector3 sphereOrigin = playerTransform.position + Vector3.up * sphereRadius;
+
         Gizmos.color = isGrounded ? Color.green : Color.red;
-        Gizmos.DrawRay(playerTransform.position, Vector3.down * groundCheckDistance);
+        
+        // Dibujar el SphereCast
+        Gizmos.DrawWireSphere(sphereOrigin, sphereRadius);
+        Gizmos.DrawWireSphere(sphereOrigin + Vector3.down * groundCheckDistance, sphereRadius);
+        Gizmos.DrawLine(sphereOrigin, sphereOrigin + Vector3.down * groundCheckDistance);
         
         if (isGrounded)
         {
-            Gizmos.DrawSphere(playerTransform.position + Vector3.down * groundCheckDistance, 0.1f);
+            Gizmos.DrawSphere(sphereOrigin + Vector3.down * groundCheckDistance, 0.15f);
         }
     }
     #endregion
