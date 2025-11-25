@@ -16,7 +16,8 @@ public class InputManager : MonoBehaviour
 
     [Header("Rotation")]
     public float mouseSensitivity = 2f;
-    public float keyboardRotateSpeed = 100f;    [Header("Jump")]
+
+    [Header("Jump")]
     public float jumpForce = 4f;
     public float jumpCooldown = 1f;
     public float groundCheckDistance = 1.1f;
@@ -195,17 +196,6 @@ public class InputManager : MonoBehaviour
 
         // Always enforce rotation from mouseX so physics can't drift it
         playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
-
-        if (Input.GetKey(KeyCode.Q))
-        {
-            mouseX -= keyboardRotateSpeed * Time.deltaTime;
-            playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
-        }
-        else if (Input.GetKey(KeyCode.E))
-        {
-            mouseX += keyboardRotateSpeed * Time.deltaTime;
-            playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
-        }
     }
 
     void CaptureJumpInput()

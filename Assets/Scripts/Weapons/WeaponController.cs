@@ -114,6 +114,15 @@ public class WeaponController : MonoBehaviour
             Debug.Log($"[WeaponController] Aim Pointer creado automáticamente");
         }
     }
+    
+    void Update()
+    {
+        // Actualizar posición del aim pointer dinámicamente
+        if (isLocalPlayer && aimPointer != null && playerCamera != null)
+        {
+            UpdateAimPointerPosition();
+        }
+    }
     #endregion
 
     #region Public Methods
@@ -312,6 +321,28 @@ public class WeaponController : MonoBehaviour
         
         // Quieto (parado)
         return isAiming ? standingAimSpread : standingSpread;
+    }
+    
+    /// <summary>
+    /// Actualiza la posición del aim pointer basándose en raycasts desde la cámara
+    /// </summary>
+    void UpdateAimPointerPosition()
+    {
+        if (playerCamera == null || aimPointer == null) return;
+        
+        // Raycast desde el centro de la pantalla
+        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        
+        if (Physics.Raycast(ray, out RaycastHit hit, range, hitLayers))
+        {
+            // Si hay un hit, posicionar el pointer en el punto de impacto
+            aimPointer.position = hit.point;
+        }
+        else
+        {
+            // Si no hay hit, posicionar a distancia por defecto
+            aimPointer.position = playerCamera.transform.position + playerCamera.transform.forward * defaultPointerDistance;
+        }
     }
     #endregion
 
