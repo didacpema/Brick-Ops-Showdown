@@ -287,21 +287,59 @@ public class InputManager : MonoBehaviour
             return;
         }
 
-        // SphereCast desde el centro del jugador hacia abajo (mejor para superficies irregulares)
-        float sphereRadius = 0.3f; // Radio de la esfera para detectar el suelo
-        Vector3 sphereOrigin = playerTransform.position + Vector3.up * sphereRadius;
+        // Usar raycast simple desde abajo del jugador
+        float rayLength = 0.8f; // Aumentado para pendientes pronunciadas
+        Vector3 rayOrigin = playerTransform.position + Vector3.up * 0.2f; // Origen más alto
         
-        if (Physics.SphereCast(sphereOrigin, sphereRadius, Vector3.down, out RaycastHit hit, 
-            groundCheckDistance, groundLayers))
+        // Hacer varios raycasts en un patrón para mejor detección en superficies irregulares
+        bool hitGround = false;
+        float minDistance = float.MaxValue;
+        
+        // Raycast central
+        if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, rayLength, groundLayers))
+        {
+            if (!hit.collider.transform.IsChildOf(playerTransform))
+            {
+                hitGround = true;
+                minDistance = Mathf.Min(minDistance, hit.distance);
+            }
+        }
+        
+        // Raycasts adicionales en patrón circular más denso para superficies irregulares
+        float offsetRadius = 0.3f; // Radio aumentado
+        Vector3[] offsets = new Vector3[]
+        {
+            playerTransform.forward * offsetRadius,
+            -playerTransform.forward * offsetRadius,
+            playerTransform.right * offsetRadius,
+            -playerTransform.right * offsetRadius,
+            // Diagonales para mejor cobertura
+            (playerTransform.forward + playerTransform.right).normalized * offsetRadius,
+            (playerTransform.forward - playerTransform.right).normalized * offsetRadius,
+            (-playerTransform.forward + playerTransform.right).normalized * offsetRadius,
+            (-playerTransform.forward - playerTransform.right).normalized * offsetRadius
+        };
+        
+        foreach (Vector3 offset in offsets)
+        {
+            Vector3 offsetOrigin = rayOrigin + offset;
+            if (Physics.Raycast(offsetOrigin, Vector3.down, out RaycastHit offsetHit, rayLength, groundLayers))
+            {
+                if (!offsetHit.collider.transform.IsChildOf(playerTransform))
+                {
+                    hitGround = true;
+                    minDistance = Mathf.Min(minDistance, offsetHit.distance);
+                }
+            }
+        }
+        
+        if (hitGround)
         {
             float verticalVelocity = rb.linearVelocity.y;
-            float distanceToGround = hit.distance;
             
-            // Está en el suelo si:
-            // 1. La distancia es pequeña Y no está subiendo rápido
-            // 2. O está cayendo y cerca del suelo
-            bool isNearGround = distanceToGround < 0.3f;
-            bool notMovingUpFast = verticalVelocity < 1f;
+            // Está en el suelo si está cerca Y no está subiendo rápido
+            bool isNearGround = minDistance < 0.6f; // Aumentado significativamente para pendientes
+            bool notMovingUpFast = verticalVelocity < 2f; // Más tolerante con velocidad vertical
             
             isGrounded = isNearGround && notMovingUpFast;
         }
@@ -315,19 +353,37 @@ public class InputManager : MonoBehaviour
     {
         if (playerTransform == null) return;
 
-        float sphereRadius = 0.3f;
-        Vector3 sphereOrigin = playerTransform.position + Vector3.up * sphereRadius;
+        float rayLength = 0.8f;
+        Vector3 rayOrigin = playerTransform.position + Vector3.up * 0.2f;
 
         Gizmos.color = isGrounded ? Color.green : Color.red;
         
-        // Dibujar el SphereCast
-        Gizmos.DrawWireSphere(sphereOrigin, sphereRadius);
-        Gizmos.DrawWireSphere(sphereOrigin + Vector3.down * groundCheckDistance, sphereRadius);
-        Gizmos.DrawLine(sphereOrigin, sphereOrigin + Vector3.down * groundCheckDistance);
+        // Raycast central
+        Gizmos.DrawRay(rayOrigin, Vector3.down * rayLength);
+        
+        // Raycasts adicionales (8 en total)
+        float offsetRadius = 0.3f;
+        Vector3[] offsets = new Vector3[]
+        {
+            playerTransform.forward * offsetRadius,
+            -playerTransform.forward * offsetRadius,
+            playerTransform.right * offsetRadius,
+            -playerTransform.right * offsetRadius,
+            (playerTransform.forward + playerTransform.right).normalized * offsetRadius,
+            (playerTransform.forward - playerTransform.right).normalized * offsetRadius,
+            (-playerTransform.forward + playerTransform.right).normalized * offsetRadius,
+            (-playerTransform.forward - playerTransform.right).normalized * offsetRadius
+        };
+        
+        foreach (Vector3 offset in offsets)
+        {
+            Vector3 offsetOrigin = rayOrigin + offset;
+            Gizmos.DrawRay(offsetOrigin, Vector3.down * rayLength);
+        }
         
         if (isGrounded)
         {
-            Gizmos.DrawSphere(sphereOrigin + Vector3.down * groundCheckDistance, 0.15f);
+            Gizmos.DrawWireSphere(rayOrigin, 0.3f);
         }
     }
     #endregion

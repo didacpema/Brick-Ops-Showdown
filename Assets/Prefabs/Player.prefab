@@ -306,7 +306,7 @@ MonoBehaviour:
   mouseSensitivity: 2
   keyboardRotateSpeed: 100
   jumpForce: 4
-  jumpCooldown: 1
+  jumpCooldown: 0.8
   groundCheckDistance: 1.1
   groundLayers:
     serializedVersion: 2
