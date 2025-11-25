@@ -722,6 +722,13 @@ public class GameController : MonoBehaviour
             }
         }
 
+        // Actualizar la barra de vida de otros jugadores
+        if (shootData.didHit && shootData.targetId >= 0 && shootData.targetId != myPlayerId)
+        {
+            GameObject remoteTarget = PlayerManager.Instance?.GetPlayer(shootData.targetId);
+            remoteTarget?.GetComponent<PlayerHealth>()?.ApplyRemoteDamage(shootData.damage);
+        }
+
         // Si el disparo viene de OTRO jugador, reproducir efectos
         if (shootData.shooterId != myPlayerId)
         {
@@ -752,6 +759,8 @@ public class GameController : MonoBehaviour
             GameObject victim = PlayerManager.Instance?.GetPlayer(deathData.victimId);
             if (victim != null)
             {
+                PlayerHealth victimHealth = victim.GetComponent<PlayerHealth>();
+                victimHealth?.MarkDeadLocally();
                 victim.SetActive(false);
             }
         }
@@ -776,6 +785,8 @@ public class GameController : MonoBehaviour
             player.SetActive(true);
             player.transform.position = position;
             player.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+            PlayerHealth health = player.GetComponent<PlayerHealth>();
+            health?.ResetHealthState();
         }
 
         PlayerState state = new PlayerState(respawnData.playerId, position, rotation);

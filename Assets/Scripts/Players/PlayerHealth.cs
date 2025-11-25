@@ -105,10 +105,11 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth -= damage;
         currentHealth = Mathf.Max(0, currentHealth);
-        
+
         Debug.Log($"<color=red>[PlayerHealth] Player {playerId} recibió {damage} daño de Player {attackerId}. Vida: {currentHealth}/{maxHealth}</color>");
 
         UpdateHealthBar();
+        NotifyHealthChanged();
         PlayDamageEffect();
 
         if (currentHealth <= 0)
@@ -128,6 +129,7 @@ public class PlayerHealth : MonoBehaviour
         currentHealth = Mathf.Min(maxHealth, currentHealth);
         
         UpdateHealthBar();
+        NotifyHealthChanged();
         Debug.Log($"[PlayerHealth] Player {playerId} curado. Vida: {currentHealth}/{maxHealth}");
     }
 
@@ -146,11 +148,49 @@ public class PlayerHealth : MonoBehaviour
     {
         return !isDead;
     }
+
+    /// <summary>
+    /// Aplica daño visual en otros clientes sin disparar eventos ni morir
+    /// </summary>
+    public void ApplyRemoteDamage(float damage)
+    {
+        if (isLocalPlayer || isDead || damage <= 0f)
+            return;
+
+        currentHealth = Mathf.Max(0f, currentHealth - damage);
+        UpdateHealthBar();
+    }
+
+    /// <summary>
+    /// Sincroniza la salud cuando un jugador remota respawnea
+    /// </summary>
+    public void ResetHealthState()
+    {
+        currentHealth = maxHealth;
+        isDead = false;
+        UpdateHealthBar();
+        NotifyHealthChanged();
+    }
+
+    /// <summary>
+    /// Marca visualmente al jugador como muerto sin reenviar eventos
+    /// </summary>
+    public void MarkDeadLocally()
+    {
+        if (isDead)
+            return;
+
+        isDead = true;
+        currentHealth = 0f;
+        UpdateHealthBar();
+        NotifyHealthChanged();
+    }
     #endregion
 
     #region Private Methods
     void UpdateHealthBar()
     {
+        //Update enemy health Bar
         if (healthBar != null)
         {
             healthBar.value = GetHealthPercentage();
@@ -167,6 +207,11 @@ public class PlayerHealth : MonoBehaviour
                     fillImage.color = Color.red;
             }
         }
+    }
+
+    void NotifyHealthChanged()
+    {
+        EventManager.Instance?.InvokePlayerHealthChanged(playerId, currentHealth, maxHealth);
     }
 
     void PlayDamageEffect()
@@ -225,6 +270,7 @@ public class PlayerHealth : MonoBehaviour
         EventManager.Instance?.InvokePlayerRespawned(playerId, spawnPos);
 
         UpdateHealthBar();
+        NotifyHealthChanged();
         Debug.Log($"<color=green>✓ Player {playerId} respawneado en {spawnPos}</color>");
     }
     #endregion
