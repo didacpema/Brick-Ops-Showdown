@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using BrickOps.Core;
+using BrickOps.Players;
 /// <summary>
 /// Controla el disparo de armas usando Raycast
 /// Debe estar en el prefab del jugador
@@ -16,11 +17,12 @@ public class WeaponController : MonoBehaviour
     public Camera playerCamera;
     
     [Tooltip("GameObject que sirve como puntero para la dirección de disparo (se posiciona dinámicamente)")]
-    public Transform aimPointer;
-
-    [Header("Configuración del Arma")]
-    [Tooltip("Daño por disparo")]
-    public float damage = 25f;
+    public Transform aimPointer;    [Header("Configuración del Arma")]
+    [Tooltip("Daño por disparo al cuerpo")]
+    public float bodyDamage = 25f;
+    
+    [Tooltip("Daño por disparo a la cabeza (headshot)")]
+    public float headDamage = 75f;
     
     [Tooltip("Alcance máximo del raycast")]
     public float range = 100f;
@@ -217,8 +219,7 @@ public class WeaponController : MonoBehaviour
         // Efectos visuales y sonoros locales
         PlayMuzzleFlash();
         PlayShootSound();
-        
-        Vector3 hitPoint;        if (didHit)
+          Vector3 hitPoint;        if (didHit)
         {
             hitPoint = hit.point;
             
@@ -227,7 +228,7 @@ public class WeaponController : MonoBehaviour
             if (barricada != null)
             {
                 // IMPACTO EN BARRICADA
-                int barricadaDamage = Mathf.RoundToInt(damage / 2.5f); // Las barricadas reciben menos daño
+                int barricadaDamage = Mathf.RoundToInt(bodyDamage / 2.5f); // Las barricadas reciben menos daño
                 
                 // Aplicar daño directamente (sin servidor en local)
                 barricada.TakeDamage(barricadaDamage);
@@ -241,14 +242,41 @@ public class WeaponController : MonoBehaviour
             }
             else
             {
-                // No es barricada, buscar jugador
-                PlayerHealth targetHealth = hit.collider.GetComponent<PlayerHealth>();
-                if (targetHealth != null && targetHealth != playerHealth)
+                // Buscar hitbox específica (cabeza o cuerpo)
+                HitboxController hitbox = hit.collider.GetComponent<HitboxController>();
+                
+                if (hitbox != null)
                 {
-                    // IMPACTO EN JUGADOR
-                    int shooterId = playerHealth != null ? playerHealth.playerId : -1;                    int targetId = targetHealth.playerId;
+                    // IMPACTO EN HITBOX ESPECÍFICA (cabeza o cuerpo)
+                    PlayerHealth targetHealth = hitbox.GetPlayerHealth();
                     
-                    EventManager.Instance?.InvokePlayerHit(shooterId, targetId, damage, hitPoint);
+                    if (targetHealth != null && targetHealth != playerHealth)
+                    {
+                        // Determinar daño según tipo de hitbox
+                        float damageToApply = hitbox.GetHitboxType() == HitboxType.Head ? headDamage : bodyDamage;
+                        
+                        int shooterId = playerHealth != null ? playerHealth.playerId : -1;
+                        int targetId = targetHealth.playerId;
+                        
+                        // Log para debug
+                        string hitType = hitbox.GetHitboxType() == HitboxType.Head ? "HEADSHOT" : "BODYSHOT";
+                        Debug.Log($"<color=yellow>[WeaponController] {hitType}! Daño: {damageToApply}</color>");
+                        
+                        EventManager.Instance?.InvokePlayerHit(shooterId, targetId, damageToApply, hitPoint);
+                    }
+                }
+                else
+                {
+                    // Fallback: buscar PlayerHealth directamente (por si acaso no tiene hitboxes)
+                    PlayerHealth targetHealth = hit.collider.GetComponent<PlayerHealth>();
+                    if (targetHealth != null && targetHealth != playerHealth)
+                    {
+                        // IMPACTO EN JUGADOR (sin hitbox específica, usar daño de cuerpo)
+                        int shooterId = playerHealth != null ? playerHealth.playerId : -1;
+                        int targetId = targetHealth.playerId;
+                        
+                        EventManager.Instance?.InvokePlayerHit(shooterId, targetId, bodyDamage, hitPoint);
+                    }
                 }
             }
             
