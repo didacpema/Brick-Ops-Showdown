@@ -15,7 +15,7 @@ namespace BrickOps.Networking
         public int port = 6000;
         public string playerName = "Player";
         public bool isServer = false;
-        public int myPlayerId = -1;
+        public int myPlayerId = 0;
         public bool isGameStarted = false;
 
         [HideInInspector] public Socket udpSocket;
