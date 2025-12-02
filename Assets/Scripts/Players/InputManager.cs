@@ -53,6 +53,8 @@ public class InputManager : MonoBehaviour
     private float lastShootTime;
     private int jumpBufferFrames;
     private int shootBufferFrames;
+    private int currentShootCount;
+    private int currentJumpCount;
     private bool justShot; // Para cancelar el correr al disparar
     
     private const int TRIGGER_BUFFER_DURATION = 10;
@@ -254,6 +256,7 @@ public class InputManager : MonoBehaviour
             isRunning = false;
             
             weaponController.TryShoot();
+            currentShootCount++;
             lastShootTime = Time.time;
             shootBufferFrames = TRIGGER_BUFFER_DURATION;
             
@@ -281,6 +284,7 @@ public class InputManager : MonoBehaviour
         if (rb == null) return;
 
         rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        currentJumpCount++;
         lastJumpTime = Time.time;
         isGrounded = false;
         jumpBufferFrames = TRIGGER_BUFFER_DURATION;
@@ -447,11 +451,11 @@ public class InputManager : MonoBehaviour
                $"Speed: {currentMoveSpeed:F2} | Aiming: {isAiming}";
     }
 
-    public BrickOps.Core.PlayerState GetCurrentPlayerState(int playerId)
+    public PlayerState GetCurrentPlayerState(int playerId)
     {
         if (playerTransform == null) return null;
 
-        return new BrickOps.Core.PlayerState(
+        return new PlayerState(
             playerId,
             playerTransform.position,
             playerTransform.eulerAngles.y,
@@ -460,7 +464,9 @@ public class InputManager : MonoBehaviour
             isAiming,
             isGrounded,
             shootBufferFrames > 0,
-            jumpBufferFrames > 0
+            jumpBufferFrames > 0,
+            currentShootCount,
+            currentJumpCount
         );
     }
 
