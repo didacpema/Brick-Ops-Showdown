@@ -57,6 +57,7 @@ public class GameController : MonoBehaviour
     private bool isServerHost = false;
     private Dictionary<IPEndPoint, PlayerInfo> serverPlayers = new Dictionary<IPEndPoint, PlayerInfo>();
     private List<IPEndPoint> serverClients = new List<IPEndPoint>();
+    private Dictionary<int, string> nameCache = new Dictionary<int, string>();
     
     private class PlayerInfo
     {
@@ -304,6 +305,7 @@ public class GameController : MonoBehaviour
         EventManager.Instance.OnPlayerHit += HandlePlayerHit;
         EventManager.Instance.OnPlayerDied += HandlePlayerDeath;
         EventManager.Instance.OnPlayerRespawned += HandlePlayerRespawn;
+        EventManager.Instance.OnPlayerSpawned += HandlePlayerSpawnedName;
 
         Debug.Log("[GameController] ✓ Event listeners configured");
     }
@@ -445,17 +447,11 @@ public class GameController : MonoBehaviour
                 PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
                 if (nameData != null)
                 {
-                    GameObject playerObj = PlayerManager.Instance?.GetPlayer(nameData.playerId);
-                    if (playerObj != null)
-                    {
-                        PlayerNameDisplay display = playerObj.GetComponent<PlayerNameDisplay>();
-                        if (display != null)
-                        {
-                            display.SetName(nameData.playerName);
-                        }
-                    }
+                    // USAMOS EL NUEVO MÉTODO INTELIGENTE
+                    RegisterAndApplyName(nameData.playerId, nameData.playerName);
                     
-                    if (isServerHost) BroadcastToClients(message, sender as IPEndPoint); 
+                    // Si soy servidor, sigo retransmitiendo a los demás
+                    if (isServerHost) BroadcastToClients(message, sender as IPEndPoint);
                 }
                 break;
 
@@ -770,7 +766,17 @@ public class GameController : MonoBehaviour
             case NetworkProtocol.SERVER_CLOSED:
                 HandleServerClosed();
                 break;
-
+            case NetworkProtocol.PLAYER_NAME:
+                PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
+                if (nameData != null)
+                {
+                    // USAMOS EL NUEVO MÉTODO INTELIGENTE
+                    RegisterAndApplyName(nameData.playerId, nameData.playerName);
+                    
+                    // Si soy servidor, sigo retransmitiendo a los demás
+                    if (isServerHost) BroadcastToClients(message);
+                }
+                break;
             default:
                 Debug.LogWarning($"[GameController] Unknown message type: {messageType}");
                 break;
@@ -889,6 +895,14 @@ public class GameController : MonoBehaviour
     {
         Debug.Log("[GameController] Server closed connection");
         ReturnToMenu();
+    }
+    void HandlePlayerSpawnedName(int id, bool isLocal)
+    {
+        // Si tengo el nombre de este ID en la agenda, pónselo ahora mismo
+        if (nameCache.ContainsKey(id))
+        {
+            RegisterAndApplyName(id, nameCache[id]);
+        }
     }
     #endregion
 
@@ -1035,6 +1049,31 @@ public class GameController : MonoBehaviour
                $"Players: {PlayerManager.Instance?.RemotePlayerCount ?? 0}";
     }
 
+    void RegisterAndApplyName(int id, string name)
+    {
+        // 1. Guardar en la agenda (o actualizar si cambió)
+        if (nameCache.ContainsKey(id))
+            nameCache[id] = name;
+        else
+            nameCache.Add(id, name);
+
+        // 2. Intentar buscar al jugador visualmente
+        if (PlayerManager.Instance != null)
+        {
+            GameObject playerObj = PlayerManager.Instance.GetPlayer(id);
+            if (playerObj != null)
+            {
+                // Buscar el script del cartelito y ponerle el nombre
+                PlayerNameDisplay display = playerObj.GetComponent<PlayerNameDisplay>();
+                if (display != null)
+                {
+                    display.SetName(name);
+                }
+                // Fallback: Si no tiene el script, ponerlo en el nombre del GameObject para debug
+                playerObj.name = $"Player_{id}_{name}";
+            }
+        }
+    }
     /// <summary>
     /// Obtiene estadísticas de red para mostrar en UI.
     /// pingMs devuelve -1 si aún no se han recibido paquetes (N/A)
