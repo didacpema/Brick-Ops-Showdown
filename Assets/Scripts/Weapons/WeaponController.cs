@@ -55,6 +55,10 @@ public class WeaponController : MonoBehaviour
     [Tooltip("Distancia mínima del target desde el jugador (evita apuntar demasiado cerca)")]
     public float minTargetDistance = 2f;
     
+    [Tooltip("Velocidad de suavizado del target (mayor = más responsivo)")]
+    [Range(1f, 300f)]
+    public float targetSmoothSpeed = 300f;
+    
     [Tooltip("Crear automáticamente el aim pointer si no está asignado")]
     public bool autoCreatePointer = false;
 
@@ -88,6 +92,7 @@ public class WeaponController : MonoBehaviour
     private bool isMoving = false;
     private bool isRunning = false;
     private bool isGrounded = true;
+    private Vector3 lastTargetPosition; // Para suavizar movimiento del target
     #endregion
 
     #region Unity Lifecycle
@@ -403,7 +408,14 @@ public class WeaponController : MonoBehaviour
             targetPosition = playerCamera.transform.position + playerCamera.transform.forward * range;
         }
         
-        aimPointer.position = targetPosition;
+        // Suavizar movimiento del target para evitar sacudidas durante shake de cámara
+        if (lastTargetPosition == Vector3.zero)
+        {
+            lastTargetPosition = targetPosition;
+        }
+        
+        lastTargetPosition = Vector3.Lerp(lastTargetPosition, targetPosition, Time.deltaTime * targetSmoothSpeed);
+        aimPointer.position = lastTargetPosition;
     }
     
     /// <summary>

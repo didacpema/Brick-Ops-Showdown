@@ -77,6 +77,12 @@ namespace BrickOps.Players
         public float zoomSpeed = 10f;
 
         [Header("Shake Settings")]
+        [Tooltip("Intensidad del shake al disparar")]
+        public float shootShakeIntensity = 0.08f;
+        
+        [Tooltip("Duración del shake al disparar")]
+        public float shootShakeDuration = 0.15f;
+        
         [Tooltip("Intensidad del shake al caminar")]
         public float walkShakeIntensity = 0.005f;
 
@@ -91,11 +97,14 @@ namespace BrickOps.Players
         
         [Tooltip("Duración del shake de salto")]
         public float jumpShakeDuration = 0.3f;
+        
+        [Tooltip("Multiplicador global de shake")]
+        [Range(0f, 2f)]
+        public float globalShakeMultiplier = 1f;
         #endregion
         
         #region Private Variables
         private Camera cam;
-        private CameraShake cameraShake;
         private float normalFOV;
         
         // Estados
@@ -106,9 +115,11 @@ namespace BrickOps.Players
         // Rotación vertical (el jugador ya rota horizontalmente)
         private float verticalRotation;
         
-        // Shake procedural
+        // Shake system
         private float shakeTime;
         private float jumpShakeTimer;
+        private float shootShakeTimer;
+        private Vector3 currentShakeOffset;
         
         // Shoulder switching
         private bool isRightShoulder = true;
@@ -120,7 +131,6 @@ namespace BrickOps.Players
         void Awake()
         {
             cam = GetComponent<Camera>();
-            cameraShake = GetComponent<CameraShake>();
             normalFOV = cam.fieldOfView;
             
             if (playerRoot == null)
@@ -148,7 +158,7 @@ namespace BrickOps.Players
         /// </summary>
         void HandleShoulderSwitch()
         {
-            if (Input.GetKeyDown(KeyCode.Q))
+            if (Input.GetKeyDown(KeyCode.F))
             {
                 isRightShoulder = !isRightShoulder;
                 Transform targetCam = isRightShoulder ? rightShoulderCamera : leftShoulderCamera;
@@ -201,17 +211,39 @@ namespace BrickOps.Players
                 Vector3 directionToCamera = desiredPosition - safeStartPosition;
                 float distanceToCamera = directionToCamera.magnitude;
                 
-                // Raycast simple desde posición segura hacia cámara
-                if (Physics.Raycast(safeStartPosition, directionToCamera.normalized, out RaycastHit hit, distanceToCamera, collisionLayers))
+                // Raycast simple desde posición segura hacia cámara (ignorando al jugador)
+                RaycastHit[] hits = Physics.RaycastAll(safeStartPosition, directionToCamera.normalized, distanceToCamera, collisionLayers);
+                
+                // Filtrar hits que pertenecen al jugador
+                RaycastHit? validHit = null;
+                float closestDistance = distanceToCamera;
+                
+                foreach (RaycastHit hit in hits)
                 {
-                    // Si hay colisión, colocar cámara justo antes del obstáculo
-                    finalCameraPosition = hit.point - directionToCamera.normalized * collisionRadius;
+                    // Ignorar colliders que son parte del jugador
+                    if (hit.collider.transform.IsChildOf(playerRoot) || hit.collider.transform == playerRoot)
+                        continue;
+                    
+                    if (hit.distance < closestDistance)
+                    {
+                        closestDistance = hit.distance;
+                        validHit = hit;
+                    }
+                }
+                
+                if (validHit.HasValue)
+                {
+                    // Si hay colisión válida, colocar cámara justo antes del obstáculo
+                    Vector3 collisionPosition = validHit.Value.point - directionToCamera.normalized * collisionRadius;
+                    
+                    // Suavizar transición para evitar saltos bruscos
+                    finalCameraPosition = Vector3.Lerp(finalCameraPosition, collisionPosition, Time.deltaTime * 15f);
                 }
             }
             
-            // 4. Aplicar shake
+            // 4. Aplicar shake (en espacio de la cámara para movimiento correcto)
             Vector3 shakeOffset = CalculateShakeOffset();
-            finalCameraPosition += playerRoot.TransformDirection(shakeOffset);
+            finalCameraPosition += transform.TransformDirection(shakeOffset);
             
             // 5. Aplicar posición suavizada
             transform.position = Vector3.Lerp(transform.position, finalCameraPosition, Time.deltaTime * followSpeed);
@@ -227,7 +259,20 @@ namespace BrickOps.Players
 
         Vector3 CalculateShakeOffset()
         {
-            Vector3 shakeOffset = Vector3.zero;
+            currentShakeOffset = Vector3.zero;
+            
+            // Shake de disparo
+            if (shootShakeTimer > 0)
+            {
+                shootShakeTimer -= Time.deltaTime;
+                float progress = 1f - (shootShakeTimer / shootShakeDuration);
+                float damping = Mathf.Sin(progress * Mathf.PI); // Curva suave
+                
+                float x = (Mathf.PerlinNoise(Time.time * 30f, 0f) - 0.5f) * 2f;
+                float y = (Mathf.PerlinNoise(0f, Time.time * 30f) - 0.5f) * 2f;
+                
+                currentShakeOffset += new Vector3(x, y, 0) * shootShakeIntensity * damping;
+            }
             
             // Shake de salto
             if (jumpShakeTimer > 0)
@@ -235,29 +280,23 @@ namespace BrickOps.Players
                 jumpShakeTimer -= Time.deltaTime;
                 float t = 1f - (jumpShakeTimer / jumpShakeDuration);
                 float shake = Mathf.Sin(t * Mathf.PI * 2) * jumpShakeIntensity * (jumpShakeTimer / jumpShakeDuration);
-                shakeOffset.y += shake;
+                currentShakeOffset.y += shake;
             }
             
-            // Shake de movimiento
+            // Shake de movimiento (procedural continuo)
             if (isMoving)
             {
                 shakeTime += Time.deltaTime * shakeFrequency;
                 float intensity = isSprinting ? runShakeIntensity : walkShakeIntensity;
-                shakeOffset.y += Mathf.Sin(shakeTime) * intensity;
-                shakeOffset.x += Mathf.Sin(shakeTime * 0.5f) * intensity * 0.5f;
+                currentShakeOffset.y += Mathf.Sin(shakeTime) * intensity;
+                currentShakeOffset.x += Mathf.Sin(shakeTime * 0.5f) * intensity * 0.5f;
             }
             else
             {
                 shakeTime = Mathf.Lerp(shakeTime, 0, Time.deltaTime * 5f);
             }
             
-            // Combinar con shake de eventos (disparo, impactos)
-            if (cameraShake != null)
-            {
-                shakeOffset += cameraShake.GetCurrentShakeOffset();
-            }
-            
-            return shakeOffset;
+            return currentShakeOffset * globalShakeMultiplier;
         }
 
         void UpdateZoom()
@@ -281,7 +320,12 @@ namespace BrickOps.Players
             isMoving = moving;
             isSprinting = sprinting;
         }
+        
+        // Shake triggers
         public void TriggerJumpShake() => jumpShakeTimer = jumpShakeDuration;
+        public void TriggerShootShake() => shootShakeTimer = shootShakeDuration;
+        
+        // Camera access
         public Camera GetCamera() => cam;
         public float GetVerticalAngleNormalized() => verticalRotation / maxVerticalAngle;
         public float GetVerticalAngleDegrees() => verticalRotation;

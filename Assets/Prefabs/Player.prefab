@@ -348,9 +348,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33a952f228b7cc044803a0d6868aab62, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InputManager
-  walkSpeed: 3
-  runSpeed: 6
-  jumpForce: 4
+  walkSpeed: 5
+  runSpeed: 8
+  aimWalkSpeed: 3
+  jumpForce: 5
   jumpCooldown: 0.8
   groundCheckDistance: 1.1
   groundLayers:
@@ -856,7 +857,6 @@ GameObject:
   - component: {fileID: 5291377374796389412}
   - component: {fileID: 6101676867942360413}
   - component: {fileID: 7067386358910972988}
-  - component: {fileID: 8564790204941234944}
   m_Layer: 6
   m_Name: PlayerCamera
   m_TagString: MainCamera
@@ -1016,108 +1016,14 @@ MonoBehaviour:
   aimFOV: 40
   sprintFOV: 70
   zoomSpeed: 10
+  shootShakeIntensity: 0.25
+  shootShakeDuration: 0.15
   walkShakeIntensity: 0.005
   runShakeIntensity: 0.015
   jumpShakeIntensity: 0.02
   shakeFrequency: 15
   jumpShakeDuration: 1
---- !u!114 &8564790204941234944
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1306927180099504179}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d41174220c6301d4991b81a3b338c13a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraShake
-  shootShake:
-    duration: 0.15
-    magnitude: 0.1
-    frequency: 30
-    dampingCurve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 1
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 1
-        value: 0
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-  impactShake:
-    duration: 0.25
-    magnitude: 0.15
-    frequency: 20
-    dampingCurve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 1
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 1
-        value: 0
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-  explosionShake:
-    duration: 0.5
-    magnitude: 0.3
-    frequency: 15
-    dampingCurve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 1
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 1
-        value: 0
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-  globalIntensity: 1
+  globalShakeMultiplier: 1
 --- !u!1 &2140982285457860407
 GameObject:
   m_ObjectHideFlags: 0
