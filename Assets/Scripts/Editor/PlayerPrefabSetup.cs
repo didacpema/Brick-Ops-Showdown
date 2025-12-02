@@ -144,7 +144,8 @@ namespace BrickOps.Editor
             if (player.GetComponent<WeaponController>() == null)
             {
                 WeaponController weapon = player.AddComponent<WeaponController>();
-                weapon.damage = 25f;
+                weapon.bodyDamage = 25f;
+                weapon.headDamage = 75f;
                 weapon.range = 100f;
                 weapon.fireRate = 0.15f;
                 weapon.standingSpread = 0.2f;
