@@ -162,7 +162,6 @@ namespace BrickOps.Editor
                 InputManager input = player.AddComponent<InputManager>();
                 input.walkSpeed = 3f;
                 input.runSpeed = 6f;
-                input.mouseSensitivity = 2f;
                 input.jumpForce = 4f;
                 input.jumpCooldown = 1f;
                 input.groundCheckDistance = 1.1f;
@@ -213,7 +212,8 @@ namespace BrickOps.Editor
             {
                 CameraController camController = cameraObj.AddComponent<CameraController>();
                 camController.playerRoot = player.transform;
-                camController.cameraDistance = 3f;
+                camController.targetDistance = 10f;
+                camController.targetHeight = 1.5f;
                 camController.followSpeed = 10f;
                 camController.mouseSensitivity = 2f;
                 camController.maxVerticalAngle = 60f;

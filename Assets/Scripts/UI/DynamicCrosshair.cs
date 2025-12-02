@@ -301,46 +301,19 @@ namespace BrickOps.UI
         }
         
         /// <summary>
-        /// Actualiza la posición del dot central basándose en un raycast desde el muzzle
+        /// Actualiza la posición del dot central:
+        /// - Muestra donde está el target (centro de pantalla) normalmente
+        /// - Se adapta si hay un obstáculo entre el muzzle y el target
         /// </summary>
         void UpdateCenterDotPosition()
         {
             if (centerDot == null || weaponController == null || playerCamera == null) return;
             
-            Transform muzzle = weaponController.muzzlePoint;
-            if (muzzle == null) return;
+            // Obtener el punto de impacto REAL de la bala (considerando obstáculos desde el muzzle)
+            Vector3 actualImpactPoint = weaponController.GetActualBulletImpactPoint();
             
-            // Calcular dirección perfecta desde cámara (sin spread)
-            Ray cameraRay = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
-            Vector3 targetPoint;
-            
-            // Primero hacer raycast desde la cámara para encontrar el punto objetivo
-            if (Physics.Raycast(cameraRay, out RaycastHit cameraHit, weaponController.range, weaponController.hitLayers))
-            {
-                targetPoint = cameraHit.point;
-            }
-            else
-            {
-                targetPoint = playerCamera.transform.position + playerCamera.transform.forward * weaponController.range;
-            }
-            
-            // Ahora hacer raycast desde el muzzle hacia ese punto
-            Vector3 directionFromMuzzle = (targetPoint - muzzle.position).normalized;
-            Vector3 finalHitPoint;
-            
-            if (Physics.Raycast(muzzle.position, directionFromMuzzle, out RaycastHit muzzleHit, weaponController.range, weaponController.hitLayers))
-            {
-                // Hay algo entre el muzzle y el target
-                finalHitPoint = muzzleHit.point;
-            }
-            else
-            {
-                // No hay obstáculos, usar el punto objetivo
-                finalHitPoint = targetPoint;
-            }
-            
-            // Proyectar el punto 3D a coordenadas de pantalla
-            Vector3 screenPoint = playerCamera.WorldToScreenPoint(finalHitPoint);
+            // Proyectar ese punto a coordenadas de pantalla
+            Vector3 screenPoint = playerCamera.WorldToScreenPoint(actualImpactPoint);
             
             // Convertir a coordenadas del canvas
             if (parentCanvas != null)

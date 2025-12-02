@@ -106,10 +106,10 @@ namespace BrickOps.Players
         // Interpolar suavemente hacia el ángulo objetivo
         currentTorsoAngle = Mathf.Lerp(currentTorsoAngle, targetAngle, Time.deltaTime * rotationSpeed);
 
-        // Aplicar rotación en el eje X GLOBAL del player (no del hueso)
+        // Aplicar rotación en el eje X GLOBAL del player (invertir porque el torso rota en dirección opuesta)
         // Primero aplicar la rotación inicial, luego rotar en el espacio WORLD
         torsoTransform.localRotation = initialTorsoRotation;
-        torsoTransform.Rotate(playerRootTransform.right, currentTorsoAngle, Space.World);            // Debug opcional
+        torsoTransform.Rotate(playerRootTransform.right, -currentTorsoAngle, Space.World);            // Debug opcional
             if (showDebug)
             {
                 Debug.Log($"[TorsoAim] Camera: {cameraAngle:F1}° | Torso: {currentTorsoAngle:F1}° | Target: {targetAngle:F1}°");
