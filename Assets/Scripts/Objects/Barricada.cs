@@ -3,7 +3,8 @@ using UnityEngine;
 [System.Serializable]
 public class BarricadaState
 {
-    public int barricadaId;
+    [SerializeField] public int barricadaId;
+    
     public int health;
     public bool[] pieceDestroyed;
 
@@ -27,6 +28,7 @@ public class Barricada : MonoBehaviour
     private int health;
     private bool[] pieceDestroyed;
     private int piecesPerSegment;
+    public int BarricadaId => barricadaId;
 
     void Start()
     {

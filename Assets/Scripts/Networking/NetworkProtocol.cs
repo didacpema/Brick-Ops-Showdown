@@ -20,6 +20,8 @@ namespace BrickOps.Networking
         public const string GAME_START = "GAME_START";
         public const string START_GAME = "START_GAME";
         public const string SERVER_CLOSED = "SERVER_CLOSED";
+        public const string BARRICADA_HIT = "BARRICADA_HIT";
+        public const string PLAYER_NAME = "PLAYER_NAME";
         #endregion
 
         #region Message Building

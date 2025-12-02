@@ -224,7 +224,7 @@ public class WeaponController : MonoBehaviour
             
             // Primero buscar barricada (tiene prioridad porque no se mueven)
             Barricada barricada = hit.collider.GetComponentInParent<Barricada>();
-              if (barricada != null)
+            if (barricada != null)
             {
                 // IMPACTO EN BARRICADA
                 int barricadaDamage = Mathf.RoundToInt(damage / 2.5f); // Las barricadas reciben menos daño
@@ -233,10 +233,10 @@ public class WeaponController : MonoBehaviour
                 barricada.TakeDamage(barricadaDamage);
                 
                 // Si hay manager y somos servidor, sincronizar
-                if (BarricadaManager.Instance?.IsServer() == true)
+                if (GameController.Instance != null)
                 {
-                    BarricadaState state = barricada.GetState();
-                    BarricadaManager.Instance.BroadcastBarricadaState(state);
+                    // Usamos la propiedad pública que creamos en el Paso 1
+                    GameController.Instance.SendBarricadeHit(barricada.BarricadaId, barricadaDamage);
                 }
             }
             else

@@ -50,6 +50,7 @@ public class GameController : MonoBehaviour
     private int packetsSent = 0;
     private int packetsReceived = 0;
     private float sessionStartTime = 0f;
+    private float lastKeepAliveTime = 0f;
     #endregion
 
     #region Private Variables - Server
@@ -177,6 +178,11 @@ public class GameController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             ReturnToMenu();
+        }
+        if (Time.time - lastKeepAliveTime > 3f && isInitialized)
+        {
+            SendMyName();
+            lastKeepAliveTime = Time.time;
         }
     }
 
@@ -419,6 +425,30 @@ public class GameController : MonoBehaviour
                 BroadcastToClients(message, sender);
                 ProcessRespawnData(data);
                 break;
+            case NetworkProtocol.BARRICADA_HIT:
+            BarricadaHitData hitData = NetworkProtocol.DeserializeFromJson<BarricadaHitData>(data);
+            if (hitData != null)
+            {
+                BarricadaManager.Instance?.ApplyDamageToBarricada(hitData.barricadaId, hitData.damage);
+            }
+            break;
+            case NetworkProtocol.PLAYER_NAME:
+                PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
+                if (nameData != null)
+                {
+                    GameObject playerObj = PlayerManager.Instance?.GetPlayer(nameData.playerId);
+                    if (playerObj != null)
+                    {
+                        PlayerNameDisplay display = playerObj.GetComponent<PlayerNameDisplay>();
+                        if (display != null)
+                        {
+                            display.SetName(nameData.playerName);
+                        }
+                    }
+                    
+                    if (isServerHost) BroadcastToClients(message, sender as IPEndPoint); 
+                }
+                break;
 
             case NetworkProtocol.START_GAME:
                 if (serverClients.Count >= 1)
@@ -623,6 +653,49 @@ public class GameController : MonoBehaviour
         {
             Debug.LogError($"[GameController] Send respawn failed: {ex.Message}");
         }
+    }
+    public void SendBarricadeHit(int barricadaId, int damage)
+    {
+        if (udpSocket == null) return;
+
+        try
+        {
+            BarricadaHitData data = new BarricadaHitData(barricadaId, damage);
+            string message = NetworkProtocol.BuildMessage(NetworkProtocol.BARRICADA_HIT, data);
+            byte[] bytes = NetworkProtocol.MessageToBytes(message);
+
+            // Si soy Servidor/Host, lo proceso directamente y aviso a los demás
+            if (isServerHost)
+            {
+                // Aplicar daño localmente (como autoridad)
+                BarricadaManager.Instance?.ApplyDamageToBarricada(barricadaId, damage);
+                // El propio Barricada.cs se encargará de hacer Broadcast del nuevo estado
+            }
+            else
+            {
+                // Si soy Cliente, se lo mando al server
+                udpSocket.SendTo(bytes, serverEndPoint);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GameController] Error sending barricade hit: {ex.Message}");
+        }
+    }
+    void SendMyName()
+    {
+        if (udpSocket == null) return;
+        
+        // Obtener mi nombre del NetworkManager
+        string myName = NetworkManager.Instance != null ? NetworkManager.Instance.playerName : "Unknown";
+
+        PlayerNameData data = new PlayerNameData(myPlayerId, myName);
+        string msg = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_NAME, data);
+        
+        if (isServerHost)
+            BroadcastToClients(msg);
+        else
+            udpSocket.SendTo(NetworkProtocol.MessageToBytes(msg), serverEndPoint);
     }
     #endregion
 
