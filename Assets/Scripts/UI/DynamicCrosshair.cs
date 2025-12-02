@@ -62,6 +62,9 @@ namespace BrickOps.UI
         
         [Tooltip("InputManager del jugador (opcional, para detectar salto)")]
         public InputManager inputManager;
+        
+        [Tooltip("Cámara del jugador (para proyectar posiciones 3D a pantalla)")]
+        public Camera playerCamera;
         #endregion
 
         #region Private Variables
@@ -69,12 +72,14 @@ namespace BrickOps.UI
         private float targetGap;
         private Image[] lineImages;
         private Image centerDotImage;
+        private Canvas parentCanvas;
         #endregion
 
         #region Unity Lifecycle
         void Start()
         {
             InitializeCrosshair();
+            parentCanvas = GetComponentInParent<Canvas>();
         }        void Update()
         {
             // Intentar auto-asignar WeaponController si aún no está asignado
@@ -84,6 +89,7 @@ namespace BrickOps.UI
                 if (weaponController != null)
                 {
                     Debug.Log("[DynamicCrosshair] WeaponController encontrado y conectado automáticamente.");
+                    playerCamera = weaponController.playerCamera;
                 }
                 return;
             }
@@ -94,7 +100,14 @@ namespace BrickOps.UI
                 inputManager = FindAnyObjectByType<InputManager>();
             }
             
+            // Auto-asignar cámara si falta
+            if (playerCamera == null && weaponController != null)
+            {
+                playerCamera = weaponController.playerCamera;
+            }
+            
             UpdateCrosshairSpread();
+            UpdateCenterDotPosition();
         }
         #endregion
 
@@ -264,6 +277,7 @@ namespace BrickOps.UI
 
         void UpdateLinePositions()
         {
+            // Las barras permanecen en el centro, solo cambia su separación (gap)
             if (topLine != null)
             {
                 topLine.anchoredPosition = new Vector2(0, currentGap + lineLength / 2);
@@ -281,6 +295,66 @@ namespace BrickOps.UI
               if (rightLine != null)
             {
                 rightLine.anchoredPosition = new Vector2(currentGap + lineLength / 2, 0);
+            }
+            
+            // El centerDot NO se mueve aquí, se actualiza en UpdateCenterDotPosition()
+        }
+        
+        /// <summary>
+        /// Actualiza la posición del dot central basándose en un raycast desde el muzzle
+        /// </summary>
+        void UpdateCenterDotPosition()
+        {
+            if (centerDot == null || weaponController == null || playerCamera == null) return;
+            
+            Transform muzzle = weaponController.muzzlePoint;
+            if (muzzle == null) return;
+            
+            // Calcular dirección perfecta desde cámara (sin spread)
+            Ray cameraRay = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+            Vector3 targetPoint;
+            
+            // Primero hacer raycast desde la cámara para encontrar el punto objetivo
+            if (Physics.Raycast(cameraRay, out RaycastHit cameraHit, weaponController.range, weaponController.hitLayers))
+            {
+                targetPoint = cameraHit.point;
+            }
+            else
+            {
+                targetPoint = playerCamera.transform.position + playerCamera.transform.forward * weaponController.range;
+            }
+            
+            // Ahora hacer raycast desde el muzzle hacia ese punto
+            Vector3 directionFromMuzzle = (targetPoint - muzzle.position).normalized;
+            Vector3 finalHitPoint;
+            
+            if (Physics.Raycast(muzzle.position, directionFromMuzzle, out RaycastHit muzzleHit, weaponController.range, weaponController.hitLayers))
+            {
+                // Hay algo entre el muzzle y el target
+                finalHitPoint = muzzleHit.point;
+            }
+            else
+            {
+                // No hay obstáculos, usar el punto objetivo
+                finalHitPoint = targetPoint;
+            }
+            
+            // Proyectar el punto 3D a coordenadas de pantalla
+            Vector3 screenPoint = playerCamera.WorldToScreenPoint(finalHitPoint);
+            
+            // Convertir a coordenadas del canvas
+            if (parentCanvas != null)
+            {
+                Vector2 localPoint;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    parentCanvas.transform as RectTransform,
+                    screenPoint,
+                    parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : playerCamera,
+                    out localPoint
+                );
+                
+                // Aplicar la posición al dot
+                centerDot.anchoredPosition = localPoint;
             }
         }
         #endregion
@@ -318,6 +392,12 @@ namespace BrickOps.UI
             if (Application.isPlaying && lineImages != null)
             {
                 ApplyVisualSettings();
+            }
+            
+            // Asegurar que el dot empiece en el centro en el editor
+            if (!Application.isPlaying && centerDot != null)
+            {
+                centerDot.anchoredPosition = Vector2.zero;
             }
         }
         #endregion

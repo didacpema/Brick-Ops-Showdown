@@ -212,7 +212,14 @@ namespace BrickOps.Editor
             if (cameraObj.GetComponent<CameraController>() == null)
             {
                 CameraController camController = cameraObj.AddComponent<CameraController>();
-                camController.normalFOV = 60f;
+                camController.playerRoot = player.transform;
+                camController.cameraDistance = 3f;
+                camController.followSpeed = 10f;
+                camController.mouseSensitivity = 2f;
+                camController.maxVerticalAngle = 60f;
+                camController.minVerticalAngle = -40f;
+                camController.enableCameraCollision = true;
+                camController.collisionRadius = 0.3f;
                 camController.aimFOV = 40f;
                 camController.sprintFOV = 70f;
                 camController.zoomSpeed = 10f;
@@ -221,7 +228,8 @@ namespace BrickOps.Editor
                 camController.jumpShakeIntensity = 0.03f;
                 camController.shakeFrequency = 10f;
                 camController.jumpShakeDuration = 0.3f;
-                Debug.Log("✓ Added CameraController (posición y rotación se configuran desde el Transform del prefab)");
+                camController.shoulderSwitchSpeed = 10f;
+                Debug.Log("✓ Added CameraController");
             }
 
             // CameraShake

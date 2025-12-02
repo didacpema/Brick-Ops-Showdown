@@ -3,18 +3,15 @@ using UnityEngine;
 namespace BrickOps.Players
 {
     /// <summary>
-    /// Sistema de cámara en primera persona con rotación independiente de animaciones
+    /// Sistema de cámara third-person con rotación orbital y cambio de hombro
     /// </summary>
     [RequireComponent(typeof(Camera))]
     public class CameraController : MonoBehaviour
     {
         #region Inspector Variables
         [Header("Follow Settings")]
-        [Tooltip("Transform del JUGADOR ROOT (NO el hueso del torso)")]
+        [Tooltip("Transform del JUGADOR ROOT")]
         public Transform playerRoot;
-        
-        [Tooltip("Offset local desde el root del jugador (altura de ojos)")]
-        public Vector3 cameraOffset = new Vector3(0f, 1.6f, 0f);
         
         [Tooltip("Distancia de la cámara detrás del jugador")]
         [Range(1f, 10f)]
@@ -24,15 +21,15 @@ namespace BrickOps.Players
         [Range(1f, 30f)]
         public float followSpeed = 10f;
 
-    [Header("Rotation Settings")]
-    [Tooltip("Sensibilidad del mouse")]
-    public float mouseSensitivity = 2f;
+        [Header("Rotation Settings")]
+        [Tooltip("Sensibilidad del mouse")]
+        public float mouseSensitivity = 2f;
 
-    [Tooltip("Ángulo máximo hacia arriba (debe coincidir con TorsoAimController)")]
-    public float maxVerticalAngle = 60f;
+        [Tooltip("Ángulo máximo hacia arriba")]
+        public float maxVerticalAngle = 60f;
 
-    [Tooltip("Ángulo máximo hacia abajo (debe coincidir con TorsoAimController)")]
-    public float minVerticalAngle = -40f;        [Header("Camera Collision")]
+        [Tooltip("Ángulo máximo hacia abajo")]
+        public float minVerticalAngle = -40f;        [Header("Camera Collision")]
         [Tooltip("Activar colisión de cámara con obstáculos")]
         public bool enableCameraCollision = true;
         
@@ -43,26 +40,23 @@ namespace BrickOps.Players
         public LayerMask collisionLayers = -1;
 
         [Header("Shoulder Switch Settings")]
-        [Tooltip("Transform de la cámara en hombro derecho (define posición en el editor)")]
+        [Tooltip("Transform de la cámara en hombro derecho")]
         public Transform rightShoulderCamera;
         
-        [Tooltip("Transform de la cámara en hombro izquierdo (define posición en el editor)")]
+        [Tooltip("Transform de la cámara en hombro izquierdo")]
         public Transform leftShoulderCamera;
         
-        [Tooltip("Offset lateral para hombro derecho (fallback si no hay transform)")]
-        public Vector3 rightShoulderOffset = new Vector3(0.5f, 0f, 0f);
+        [Tooltip("Offset hombro derecho (fallback si no hay transform)")]
+        public Vector3 rightShoulderOffset = new Vector3(0.5f, 1.6f, 0f);
         
-        [Tooltip("Offset lateral para hombro izquierdo (fallback si no hay transform)")]
-        public Vector3 leftShoulderOffset = new Vector3(-0.5f, 0f, 0f);
+        [Tooltip("Offset hombro izquierdo (fallback si no hay transform)")]
+        public Vector3 leftShoulderOffset = new Vector3(-0.5f, 1.6f, 0f);
         
         [Tooltip("Velocidad de transición entre hombros")]
         [Range(1f, 20f)]
         public float shoulderSwitchSpeed = 10f;
 
         [Header("Zoom Settings")]
-        [Tooltip("FOV normal")]
-        public float normalFOV = 60f;
-
         [Tooltip("FOV al apuntar")]
         public float aimFOV = 40f;
 
@@ -72,7 +66,7 @@ namespace BrickOps.Players
         [Tooltip("Velocidad de transición del zoom")]
         public float zoomSpeed = 10f;
 
-        [Header("Procedural Shake Settings")]
+        [Header("Shake Settings")]
         [Tooltip("Intensidad del shake al caminar")]
         public float walkShakeIntensity = 0.005f;
 
@@ -92,21 +86,20 @@ namespace BrickOps.Players
         #region Private Variables
         private Camera cam;
         private CameraShake cameraShake;
+        private float normalFOV;
         
         // Estados
         private bool isAiming;
         private bool isSprinting;
-        private bool isWalking;
-        private bool isRunning;
+        private bool isMoving;
         
-        // Rotación (SOLO por input del jugador)
+        // Rotación
         private float verticalRotation;
         private float horizontalRotation;
         
         // Shake procedural
         private float shakeTime;
         private float jumpShakeTimer;
-        private bool isJumpShaking;
         
         // Shoulder switching
         private bool isRightShoulder = true;
@@ -126,17 +119,9 @@ namespace BrickOps.Players
                 Debug.LogError("[CameraController] PlayerRoot not assigned!");
             }
             
-            // Inicializar con hombro derecho
-            if (rightShoulderCamera != null)
-            {
-                currentShoulderOffset = rightShoulderCamera.localPosition;
-                targetShoulderOffset = rightShoulderCamera.localPosition;
-            }
-            else
-            {
-                currentShoulderOffset = rightShoulderOffset;
-                targetShoulderOffset = rightShoulderOffset;
-            }
+            // Inicializar offsets de hombro
+            currentShoulderOffset = rightShoulderCamera != null ? rightShoulderCamera.localPosition : rightShoulderOffset;
+            targetShoulderOffset = currentShoulderOffset;
         }
 
         void LateUpdate()
@@ -157,19 +142,11 @@ namespace BrickOps.Players
             if (Input.GetKeyDown(KeyCode.Q))
             {
                 isRightShoulder = !isRightShoulder;
-                
-                // Determinar offset objetivo según el hombro activo
-                if (isRightShoulder)
-                {
-                    targetShoulderOffset = rightShoulderCamera != null ? rightShoulderCamera.localPosition : rightShoulderOffset;
-                }
-                else
-                {
-                    targetShoulderOffset = leftShoulderCamera != null ? leftShoulderCamera.localPosition : leftShoulderOffset;
-                }
+                Transform targetCam = isRightShoulder ? rightShoulderCamera : leftShoulderCamera;
+                Vector3 fallbackOffset = isRightShoulder ? rightShoulderOffset : leftShoulderOffset;
+                targetShoulderOffset = targetCam != null ? targetCam.localPosition : fallbackOffset;
             }
             
-            // Interpolar SIEMPRE suavemente hacia el offset objetivo
             currentShoulderOffset = Vector3.Lerp(currentShoulderOffset, targetShoulderOffset, Time.deltaTime * shoulderSwitchSpeed);
         }
 
@@ -196,39 +173,34 @@ namespace BrickOps.Players
         {
             if (playerRoot == null) return;
             
-            // 1. Calcular rotación final (SOLO por input del mouse)
+            // 1. Calcular rotación de la cámara
             Quaternion cameraRotation = Quaternion.Euler(verticalRotation, horizontalRotation, 0f);
             
-            // 2. Punto objetivo (pivot): posición del jugador + offset de hombro interpolado en espacio local
+            // 2. Punto pivot (donde mira la cámara)
             Vector3 pivotPosition = playerRoot.position + playerRoot.TransformDirection(currentShoulderOffset);
             
-            // 3. Posición deseada de la cámara: detrás del pivot según la rotación
-            Vector3 desiredCameraPosition = pivotPosition - (cameraRotation * Vector3.forward * cameraDistance);
+            // 3. Posición deseada de la cámara (orbital)
+            Vector3 desiredPosition = pivotPosition - (cameraRotation * Vector3.forward * cameraDistance);
             
-            // 4. Detectar colisiones con paredes
-            Vector3 finalCameraPosition = desiredCameraPosition;
+            // 4. Colisión con paredes
             if (enableCameraCollision)
             {
-                Vector3 direction = desiredCameraPosition - pivotPosition;
+                Vector3 direction = desiredPosition - pivotPosition;
                 float distance = direction.magnitude;
                 
                 if (Physics.SphereCast(pivotPosition, collisionRadius, direction.normalized, out RaycastHit hit, distance, collisionLayers))
                 {
-                    // Ajustar distancia si hay obstrucción
-                    finalCameraPosition = pivotPosition + direction.normalized * (hit.distance - collisionRadius);
+                    desiredPosition = pivotPosition + direction.normalized * (hit.distance - collisionRadius);
                 }
             }
             
-            // 5. Aplicar shake en espacio LOCAL de la cámara
+            // 5. Aplicar shake
             Vector3 shakeOffset = CalculateShakeOffset();
-            finalCameraPosition += cameraRotation * shakeOffset;
+            desiredPosition += cameraRotation * shakeOffset;
             
-            // 6. Aplicar con suavizado
-            transform.position = Vector3.Lerp(transform.position, finalCameraPosition, Time.deltaTime * followSpeed);
+            // 6. Aplicar posición y rotación suavizada
+            transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * followSpeed);
             transform.rotation = Quaternion.Slerp(transform.rotation, cameraRotation, Time.deltaTime * followSpeed);
-            
-            // 7. Hacer que la cámara siempre mire al pivot
-            transform.LookAt(pivotPosition);
         }
 
         Vector3 CalculateShakeOffset()
@@ -236,27 +208,19 @@ namespace BrickOps.Players
             Vector3 shakeOffset = Vector3.zero;
             
             // Shake de salto
-            if (isJumpShaking)
+            if (jumpShakeTimer > 0)
             {
                 jumpShakeTimer -= Time.deltaTime;
-                if (jumpShakeTimer <= 0)
-                {
-                    isJumpShaking = false;
-                }
-                else
-                {
-                    float t = 1f - (jumpShakeTimer / jumpShakeDuration);
-                    float shake = Mathf.Sin(t * Mathf.PI * 2) * jumpShakeIntensity * (jumpShakeTimer / jumpShakeDuration);
-                    shakeOffset.y += shake;
-                }
+                float t = 1f - (jumpShakeTimer / jumpShakeDuration);
+                float shake = Mathf.Sin(t * Mathf.PI * 2) * jumpShakeIntensity * (jumpShakeTimer / jumpShakeDuration);
+                shakeOffset.y += shake;
             }
             
             // Shake de movimiento
-            if (isWalking || isRunning)
+            if (isMoving)
             {
                 shakeTime += Time.deltaTime * shakeFrequency;
-                
-                float intensity = isRunning ? runShakeIntensity : walkShakeIntensity;
+                float intensity = isSprinting ? runShakeIntensity : walkShakeIntensity;
                 shakeOffset.y += Mathf.Sin(shakeTime) * intensity;
                 shakeOffset.x += Mathf.Sin(shakeTime * 0.5f) * intensity * 0.5f;
             }
@@ -265,7 +229,7 @@ namespace BrickOps.Players
                 shakeTime = Mathf.Lerp(shakeTime, 0, Time.deltaTime * 5f);
             }
             
-            // Combinar con shake de eventos
+            // Combinar con shake de eventos (disparo, impactos)
             if (cameraShake != null)
             {
                 shakeOffset += cameraShake.GetCurrentShakeOffset();
@@ -290,16 +254,12 @@ namespace BrickOps.Players
         #region Public API
         public void SetAiming(bool aiming) => isAiming = aiming;
         public void SetSprinting(bool sprinting) => isSprinting = sprinting;
-        public void SetMovementState(bool walking, bool running)
+        public void SetMovementState(bool moving, bool sprinting)
         {
-            isWalking = walking;
-            isRunning = running;
+            isMoving = moving;
+            isSprinting = sprinting;
         }
-        public void TriggerJumpShake()
-        {
-            isJumpShaking = true;
-            jumpShakeTimer = jumpShakeDuration;
-        }
+        public void TriggerJumpShake() => jumpShakeTimer = jumpShakeDuration;
         public Camera GetCamera() => cam;
         public float GetVerticalAngleNormalized() => verticalRotation / maxVerticalAngle;
         public float GetVerticalAngleDegrees() => verticalRotation;

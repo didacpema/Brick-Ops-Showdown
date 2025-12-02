@@ -155,7 +155,7 @@ public class InputManager : MonoBehaviour
         {
             cameraController.SetAiming(isAiming);
             cameraController.SetSprinting(isRunning);
-            cameraController.SetMovementState(isMoving && !isRunning, isRunning);
+            cameraController.SetMovementState(isMoving, isRunning);
         }
         
         // Actualizar estado del arma para el crosshair dinámico
