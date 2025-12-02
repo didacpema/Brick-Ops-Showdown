@@ -360,7 +360,9 @@ public class GameController : MonoBehaviour
         if (!serverPlayers.ContainsKey(sender))
         {
             string playerName = message.Trim();
-            int newPlayerId = serverClients.Count + 2; // +2 porque el servidor es Player 1
+            // TODO: Comprobar que otro no tenga el mismo ID
+
+            int newPlayerId = serverClients.Count + 2; // +2 porque el servidor es Player
             
             PlayerInfo playerInfo = new PlayerInfo
             {
@@ -448,7 +450,7 @@ public class GameController : MonoBehaviour
         }
     }
 
-    void BroadcastToClients(string msg, IPEndPoint exclude = null)
+    public void BroadcastToClients(string msg, IPEndPoint exclude = null)
     {
         // Verificar que el socket esté disponible antes de intentar enviar
         if (udpSocket == null)
@@ -545,7 +547,15 @@ public class GameController : MonoBehaviour
             ShootData shootData = new ShootData(shooterId, targetId, damage, hitPoint, didHit);
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.SHOOT_DATA, shootData);
             byte[] data = NetworkProtocol.MessageToBytes(message);
-
+            if (didHit && targetId != -1 && targetId != myPlayerId)
+            {
+                GameObject enemy = PlayerManager.Instance?.GetPlayer(targetId);
+                if (enemy != null)
+                {
+                    // Forzamos la actualización visual de la barra de vida del enemigo
+                    enemy.GetComponent<PlayerHealth>()?.ApplyRemoteDamage(damage);
+                }
+            }
             if (isServerHost)
             {
                 BroadcastToClients(message);

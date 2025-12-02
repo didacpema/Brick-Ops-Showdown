@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using BrickOps.Networking;
 
 public class BarricadaManager : MonoBehaviour
 {
@@ -40,15 +41,25 @@ public class BarricadaManager : MonoBehaviour
 
     public bool IsServer()
     {
-        return Server != null;
+        return Server != null || (NetworkManager.Instance != null && NetworkManager.Instance.isServer);
     }
 
     public void BroadcastBarricadaState(BarricadaState state)
     {
-        if (state == null || !IsServer()) return;
+        if (state == null) return;
 
-        string payload = JsonUtility.ToJson(state);
-        Server.BroadcastToClients(BarricadaStatePrefix + payload);
+        string payload = BarricadaStatePrefix + JsonUtility.ToJson(state);
+
+        // FIX: Intentar enviar usando ServerSceneController O GameController
+        if (Server != null)
+        {
+            Server.BroadcastToClients(payload);
+        }
+        else if (GameController.Instance != null && NetworkManager.Instance.isServer)
+        {
+            // Si somos Host desde el juego, usamos GameController
+            GameController.Instance.BroadcastToClients(payload);
+        }
     }
 
     public void ApplyBarricadaStateFromNetwork(BarricadaState state)

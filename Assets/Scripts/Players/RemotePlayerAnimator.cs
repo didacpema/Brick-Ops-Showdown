@@ -19,6 +19,8 @@ namespace BrickOps.Players
         private bool lastGrounded = true;
         private bool lastShooting = false;
         private bool lastJumping = false;
+        private int lastShootCount = -1;
+        private int lastJumpCount = -1;
 
         // Sistema de buffer para triggers (solución para eventos de un frame)
         private int shootBufferFrames = 0;
@@ -92,6 +94,19 @@ namespace BrickOps.Players
                 if (showDebug)
                     Debug.Log($"[RemotePlayerAnimator] Running: {state.isRunning}");
             }
+            // DETECTAR DISPARO (Si el número cambió, dispara)
+            if (lastShootCount != -1 && state.shootCount > lastShootCount)
+            {
+                animator.SetTrigger(HashShoot);
+            }
+            lastShootCount = state.shootCount;
+
+            // DETECTAR SALTO
+            if (lastJumpCount != -1 && state.jumpCount > lastJumpCount)
+            {
+                animator.SetTrigger(HashJump);
+            }
+            lastJumpCount = state.jumpCount;
 
             if (state.isAiming != lastAiming)
             {
@@ -134,14 +149,14 @@ namespace BrickOps.Players
                 jumpBufferFrames = TRIGGER_BUFFER_DURATION;
                 
                 if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] 🦘 Jump triggered! (Buffer: {TRIGGER_BUFFER_DURATION} frames)");
+                    Debug.Log($"[RemotePlayerAnimator] Jump triggered! (Buffer: {TRIGGER_BUFFER_DURATION} frames)");
             }
             // Si el trigger sigue activo y el buffer no ha expirado, re-activarlo
             if (state.isJumping && jumpBufferFrames > 0)
             {
                 // NO re-activar trigger, solo mantener el buffer
                 if (showDebug && jumpBufferFrames == TRIGGER_BUFFER_DURATION - 1)
-                    Debug.Log($"[RemotePlayerAnimator] 🦘 Jump buffer maintained (frames left: {jumpBufferFrames})");
+                    Debug.Log($"[RemotePlayerAnimator] Jump buffer maintained (frames left: {jumpBufferFrames})");
             }
             lastJumping = state.isJumping;
         }

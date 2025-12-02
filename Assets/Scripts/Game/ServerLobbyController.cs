@@ -18,7 +18,7 @@ public class ServerSceneController : MonoBehaviour
 
     [Header("Settings")]
     public int port = 6000;
-    private const int MAX_PLAYERS = 2;
+    private const int MAX_PLAYERS = 10;
 
     private UdpTransport transport;
 

@@ -19,6 +19,8 @@ namespace BrickOps.Core
         public bool isGrounded;
         public bool isShooting;
         public bool isJumping;
+        public int shootCount;
+        public int jumpCount;
 
         // Constructor vacío requerido por JsonUtility
         public PlayerState() { }
@@ -41,7 +43,7 @@ namespace BrickOps.Core
         }
 
         // Constructor completo con datos de animación
-        public PlayerState(int id, Vector3 pos, float rotation, bool walking, bool running, bool aiming, bool grounded, bool shooting, bool jumping)
+        public PlayerState(int id, Vector3 pos, float rotation, bool walking, bool running, bool aiming, bool grounded, bool shooting, bool jumping, int sCount, int jCount)
         {
             playerId = id;
             posX = pos.x;
@@ -54,6 +56,8 @@ namespace BrickOps.Core
             isGrounded = grounded;
             isShooting = shooting;
             isJumping = jumping;
+            shootCount = sCount;
+            jumpCount = jCount;
         }
 
         public Vector3 GetPosition()
