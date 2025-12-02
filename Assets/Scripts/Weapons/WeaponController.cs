@@ -27,8 +27,7 @@ public class WeaponController : MonoBehaviour
     
     [Tooltip("Tiempo entre disparos (en segundos)")]
     public float fireRate = 0.15f;
-    
-    [Header("Spread Settings")]
+      [Header("Spread Settings")]
     [Tooltip("Dispersión al disparar quieto sin apuntar")]
     public float standingSpread = 0.02f;
     
@@ -43,6 +42,9 @@ public class WeaponController : MonoBehaviour
     
     [Tooltip("Dispersión al disparar corriendo (no se puede apuntar)")]
     public float runningSpread = 0.08f;
+    
+    [Tooltip("Dispersión al disparar saltando/en el aire")]
+    public float jumpingSpread = 0.1f;
     
     [Header("Aim Pointer Settings")]
     [Tooltip("Distancia por defecto del puntero si no hay obstáculos")]
@@ -67,8 +69,7 @@ public class WeaponController : MonoBehaviour
     [Header("Audio")]
     public AudioClip shootSound;
     public AudioClip impactSound;
-    
-    [Header("Layers")]
+      [Header("Layers")]
     [Tooltip("Capas que pueden ser impactadas")]
     public LayerMask hitLayers;
     #endregion
@@ -81,6 +82,7 @@ public class WeaponController : MonoBehaviour
     private bool isAiming = false;
     private bool isMoving = false;
     private bool isRunning = false;
+    private bool isGrounded = true;
     #endregion
 
     #region Unity Lifecycle
@@ -143,14 +145,21 @@ public class WeaponController : MonoBehaviour
     {
         isAiming = aiming;
     }
-    
-    /// <summary>
+      /// <summary>
     /// Actualiza el estado de movimiento
     /// </summary>
     public void SetMovementState(bool moving, bool running)
     {
         isMoving = moving;
         isRunning = running;
+    }
+    
+    /// <summary>
+    /// Actualiza el estado de si está en el suelo
+    /// </summary>
+    public void SetGrounded(bool grounded)
+    {
+        isGrounded = grounded;
     }
 
     /// <summary>
@@ -301,13 +310,18 @@ public class WeaponController : MonoBehaviour
 
         return direction;
     }
-    
-    /// <summary>
+      /// <summary>
     /// Calcula la dispersión actual según el estado del jugador
     /// </summary>
     float CalculateCurrentSpread()
     {
-        // Corriendo: máxima dispersión (no se puede apuntar mientras corres)
+        // Prioridad 1: Saltando (en el aire) - máxima dispersión
+        if (!isGrounded)
+        {
+            return jumpingSpread;
+        }
+        
+        // Prioridad 2: Corriendo - alta dispersión (no se puede apuntar mientras corres)
         if (isRunning)
         {
             return runningSpread;
@@ -389,14 +403,22 @@ public class WeaponController : MonoBehaviour
         {
             audioSource.PlayOneShot(shootSound);
         }
-    }
-
-    void PlayImpactSound(Vector3 position)
+    }    void PlayImpactSound(Vector3 position)
     {
         if (impactSound != null)
         {
             AudioSource.PlayClipAtPoint(impactSound, position);
         }
+    }
+    #endregion
+
+    #region Public API (Crosshair)
+    /// <summary>
+    /// Obtiene el spread actual del arma para el crosshair dinámico
+    /// </summary>
+    public float GetCurrentSpread()
+    {
+        return CalculateCurrentSpread();
     }
     #endregion
 

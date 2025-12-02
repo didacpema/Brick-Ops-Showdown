@@ -49,11 +49,11 @@ public class InputManager : MonoBehaviour
     private bool isRunning;
     private bool isAiming;
     private float currentMoveSpeed;
-    
-    private float lastJumpTime;
+      private float lastJumpTime;
     private float lastShootTime;
     private int jumpBufferFrames;
     private int shootBufferFrames;
+    private bool justShot; // Para cancelar el correr al disparar
     
     private const int TRIGGER_BUFFER_DURATION = 10;
     private const float JUMP_GROUND_CHECK_DELAY = 0.2f;
@@ -112,8 +112,24 @@ public class InputManager : MonoBehaviour
         }
 
         // TorsoAimController se inicializa automáticamente en su propio Start()
+        
+        // Conectar el crosshair con el WeaponController del jugador
+        ConnectCrosshairToWeapon();
 
         return rb != null;
+    }
+      void ConnectCrosshairToWeapon()
+    {
+        if (weaponController == null) return;
+        
+        // Buscar el crosshair en la escena
+        BrickOps.UI.DynamicCrosshair crosshair = FindAnyObjectByType<BrickOps.UI.DynamicCrosshair>();
+        if (crosshair != null)
+        {
+            crosshair.SetWeaponController(weaponController);
+            crosshair.inputManager = this; // Asignar también el InputManager para detectar salto
+            Debug.Log("[InputManager] Crosshair conectado al WeaponController del jugador");
+        }
     }
 
     void ConfigurePhysics()
@@ -129,9 +145,7 @@ public class InputManager : MonoBehaviour
         if (!isInitialized) return;
 
         if (shootBufferFrames > 0) shootBufferFrames--;
-        if (jumpBufferFrames > 0) jumpBufferFrames--;
-
-        UpdateGroundStatus();
+        if (jumpBufferFrames > 0) jumpBufferFrames--;        UpdateGroundStatus();
         ProcessInput();
         UpdateAnimations();
         
@@ -140,6 +154,14 @@ public class InputManager : MonoBehaviour
             cameraController.SetAiming(isAiming);
             cameraController.SetSprinting(isRunning);
             cameraController.SetMovementState(isMoving && !isRunning, isRunning);
+        }
+        
+        // Actualizar estado del arma para el crosshair dinámico
+        if (weaponController != null)
+        {
+            weaponController.SetAiming(isAiming);
+            weaponController.SetMovementState(isMoving, isRunning);
+            weaponController.SetGrounded(isGrounded); // Actualizar estado de salto
         }
     }
     #endregion
@@ -165,14 +187,20 @@ public class InputManager : MonoBehaviour
             moveDirection += playerTransform.forward * vertical;
         
         if (Mathf.Abs(horizontal) > 0.01f)
-            moveDirection += playerTransform.right * horizontal;
-
-        if (moveDirection.sqrMagnitude > 1f)
+            moveDirection += playerTransform.right * horizontal;        if (moveDirection.sqrMagnitude > 1f)
             moveDirection.Normalize();
 
-        isRunning = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isAiming;
+        // No permitir correr si acabas de disparar o si estás apuntando
+        bool canRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isAiming && !justShot;
+        isRunning = canRun;
         isMoving = moveDirection.sqrMagnitude > 0.01f;
         currentMoveSpeed = isMoving ? (isRunning ? runSpeed : walkSpeed) : 0f;
+        
+        // Reset del flag de disparo
+        if (justShot && !Input.GetKey(KeyCode.LeftShift))
+        {
+            justShot = false;
+        }
 
         if (isMoving)
         {
@@ -215,17 +243,16 @@ public class InputManager : MonoBehaviour
         {
             weaponController.SetAiming(isAiming);
         }
-    }
-
-    void CaptureShootingInput()
+    }    void CaptureShootingInput()
     {
         if (weaponController == null) return;
-        
-        // Actualizar estado de movimiento en el arma
-        weaponController.SetMovementState(isMoving, isRunning);
 
         if (Input.GetMouseButtonDown(0) && Time.time >= lastShootTime + shootCooldown)
         {
+            // Marcar que acabamos de disparar para cancelar el correr
+            justShot = true;
+            isRunning = false;
+            
             weaponController.TryShoot();
             lastShootTime = Time.time;
             shootBufferFrames = TRIGGER_BUFFER_DURATION;
