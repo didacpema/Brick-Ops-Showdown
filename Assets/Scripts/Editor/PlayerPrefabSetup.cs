@@ -160,8 +160,9 @@ namespace BrickOps.Editor
             if (player.GetComponent<InputManager>() == null)
             {
                 InputManager input = player.AddComponent<InputManager>();
-                input.walkSpeed = 3f;
-                input.runSpeed = 6f;
+                input.walkSpeed = 5f;
+                input.runSpeed = 8f;
+                input.aimWalkSpeed = 3f;
                 input.jumpForce = 4f;
                 input.jumpCooldown = 1f;
                 input.groundCheckDistance = 1.1f;
@@ -223,6 +224,8 @@ namespace BrickOps.Editor
                 camController.aimFOV = 40f;
                 camController.sprintFOV = 70f;
                 camController.zoomSpeed = 10f;
+                camController.shootShakeIntensity = 0.08f;
+                camController.shootShakeDuration = 0.15f;
                 camController.walkShakeIntensity = 0.005f;
                 camController.runShakeIntensity = 0.015f;
                 camController.jumpShakeIntensity = 0.03f;
@@ -230,14 +233,6 @@ namespace BrickOps.Editor
                 camController.jumpShakeDuration = 0.3f;
                 camController.shoulderSwitchSpeed = 10f;
                 Debug.Log("✓ Added CameraController");
-            }
-
-            // CameraShake
-            if (cameraObj.GetComponent<CameraShake>() == null)
-            {
-                CameraShake shake = cameraObj.AddComponent<CameraShake>();
-                shake.globalIntensity = 1f;
-                Debug.Log("✓ Added CameraShake");
             }
 
             // 10. Conectar referencias en PlayerController

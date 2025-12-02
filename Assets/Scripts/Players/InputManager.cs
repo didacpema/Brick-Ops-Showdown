@@ -11,8 +11,9 @@ public class InputManager : MonoBehaviour
 {
     #region Inspector Variables
     [Header("Movement")]
-    public float walkSpeed = 3f;
-    public float runSpeed = 6f;
+    public float walkSpeed = 5f;
+    public float runSpeed = 8f;
+    public float aimWalkSpeed = 3f;
 
     [Header("Jump")]
     public float jumpForce = 4f;
@@ -31,8 +32,6 @@ public class InputManager : MonoBehaviour
     private Animator animator;
     private WeaponController weaponController;
     private CameraController cameraController;
-    private CameraShake cameraShake;
-    // TorsoAimController - se inicializa automáticamente en su propio Start()
     #endregion
 
     #region State
@@ -57,7 +56,7 @@ public class InputManager : MonoBehaviour
     
     private const int TRIGGER_BUFFER_DURATION = 10;
     private const float JUMP_GROUND_CHECK_DELAY = 0.2f;
-    private const float SHOOT_ANIMATION_DURATION = 0.9f; // Duración para mantener layer activo
+    private const float SHOOT_ANIMATION_DURATION = 0.6f; // Duración para mantener layer activo (reducido)
     #endregion
 
     #region Animation Hashes
@@ -104,15 +103,10 @@ public class InputManager : MonoBehaviour
         if (animator == null)
         {
             animator = playerObject.GetComponentInChildren<Animator>();
-        }        weaponController = playerObject.GetComponent<WeaponController>();
-        
-        cameraController = playerObject.GetComponentInChildren<CameraController>();
-        if (cameraController != null)
-        {
-            cameraShake = cameraController.GetComponent<CameraShake>();
         }
 
-        // TorsoAimController se inicializa automáticamente en su propio Start()
+        weaponController = playerObject.GetComponent<WeaponController>();
+        cameraController = playerObject.GetComponentInChildren<CameraController>();
         
         // Conectar el crosshair con el WeaponController del jugador
         ConnectCrosshairToWeapon();
@@ -195,12 +189,36 @@ public class InputManager : MonoBehaviour
         bool canRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isAiming && !justShot;
         isRunning = canRun;
         isMoving = moveDirection.sqrMagnitude > 0.01f;
-        currentMoveSpeed = isMoving ? (isRunning ? runSpeed : walkSpeed) : 0f;
         
-        // Reset del flag de disparo
-        if (justShot && !Input.GetKey(KeyCode.LeftShift))
+        // Calcular velocidad según el estado (apuntando usa velocidad reducida)
+        if (isMoving)
         {
-            justShot = false;
+            if (isAiming)
+            {
+                currentMoveSpeed = aimWalkSpeed;
+            }
+            else if (isRunning)
+            {
+                currentMoveSpeed = runSpeed;
+            }
+            else
+            {
+                currentMoveSpeed = walkSpeed;
+            }
+        }
+        else
+        {
+            currentMoveSpeed = 0f;
+        }
+        
+        // Reset del flag de disparo después de un breve delay
+        if (justShot)
+        {
+            // Permitir correr 0.3s después de disparar (cuando la animación termina)
+            if (Time.time >= lastShootTime + SHOOT_ANIMATION_DURATION)
+            {
+                justShot = false;
+            }
         }
 
         if (isMoving)
@@ -269,9 +287,9 @@ public class InputManager : MonoBehaviour
                 animator.SetTrigger(HashShoot);
             }
 
-            if (cameraShake != null)
+            if (cameraController != null)
             {
-                cameraShake.ShakeOnShoot();
+                cameraController.TriggerShootShake();
             }
         }
         
@@ -488,6 +506,5 @@ public class InputManager : MonoBehaviour
     }
 
     public CameraController GetCameraController() => cameraController;
-    public CameraShake GetCameraShake() => cameraShake;
     #endregion
 }
