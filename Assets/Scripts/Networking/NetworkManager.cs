@@ -16,6 +16,7 @@ namespace BrickOps.Networking
         public string playerName = "Player";
         public bool isServer = false;
         public int myPlayerId = -1;
+        public bool isGameStarted = false;
 
         [HideInInspector] public Socket udpSocket;
         [HideInInspector] public EndPoint serverEndPoint;

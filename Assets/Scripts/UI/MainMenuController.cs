@@ -16,27 +16,23 @@ public class MainMenuController : MonoBehaviour
 
     void OnCreateServer()
     {
-        if (NetworkManager.Instance == null)
-        {
-            GameObject nmObj = new GameObject("NetworkManager");
-            NetworkManager nm = nmObj.AddComponent<NetworkManager>();
-            nm.isServer = true;
-            nm.port = 6000;
-            nm.myPlayerId = 1; // El servidor es siempre Player 1
-            nm.playerName = "Host"; // Nombre por defecto del servidor
-        }
-        else
-        {
-            NetworkManager.Instance.isServer = true;
-            NetworkManager.Instance.myPlayerId = 1;
-            NetworkManager.Instance.playerName = "Host";
-        }
-        
-        // Ir directamente al juego, no a ServerScene separado
-        SceneManager.LoadScene("Game");
+        // 1. Configurar NetworkManager como HOST
+        SetupNetworkManager(true);
+
+        // 2. Cargar escena ESPECÍFICA del Host
+        SceneManager.LoadScene("ServerWaitingRoom");
     }
 
     void OnJoinClient()
+    {
+        // 1. Configurar NetworkManager como CLIENTE
+        SetupNetworkManager(false);
+        
+        // 2. Cargar escena de Clientes
+        SceneManager.LoadScene("WaitingRoom");
+    }
+
+    void SetupNetworkManager(bool serverMode)
     {
         if (NetworkManager.Instance == null)
         {
@@ -44,6 +40,16 @@ public class MainMenuController : MonoBehaviour
             nmObj.AddComponent<NetworkManager>();
         }
         
-        SceneManager.LoadScene("WaitingRoom");
+        NetworkManager.Instance.isServer = serverMode;
+        NetworkManager.Instance.myPlayerId = serverMode ? 1 : -1;
+        NetworkManager.Instance.playerName = serverMode ? "Host" : "Player";
+        NetworkManager.Instance.isGameStarted = false;
+        
+        // Limpiar socket viejo si hubiera
+        if (NetworkManager.Instance.udpSocket != null)
+        {
+            NetworkManager.Instance.udpSocket.Close();
+            NetworkManager.Instance.udpSocket = null;
+        }
     }
 }

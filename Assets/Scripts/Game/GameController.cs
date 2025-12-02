@@ -108,21 +108,31 @@ public class GameController : MonoBehaviour
         
         myPlayerId = 1; // Servidor siempre es Player 1
         
-        // Configurar socket como servidor
-        try
+        // --- CAMBIO IMPORTANTE: Reutilizar Socket ---
+        // Verificamos si ya traemos un socket abierto de la Sala de Espera
+        if (NetworkManager.Instance.udpSocket != null)
         {
-            udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            udpSocket.Blocking = false;
-            udpSocket.Bind(new IPEndPoint(IPAddress.Any, NetworkManager.Instance.port));
-            
-            NetworkManager.Instance.udpSocket = udpSocket;
-            Debug.Log($"[GameController] Server listening on port {NetworkManager.Instance.port}");
+            udpSocket = NetworkManager.Instance.udpSocket;
+            Debug.Log("[GameController] ✅ Socket reutilizado de la Sala de Espera");
         }
-        catch (Exception ex)
+        else
         {
-            Debug.LogError($"[GameController] Failed to start server: {ex.Message}");
-            ReturnToMenu();
-            return;
+            // Solo si NO hay socket (ej: entraste directo a la escena Game para pruebas), creamos uno
+            try
+            {
+                udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                udpSocket.Blocking = false;
+                udpSocket.Bind(new IPEndPoint(IPAddress.Any, NetworkManager.Instance.port));
+                
+                NetworkManager.Instance.udpSocket = udpSocket;
+                Debug.Log($"[GameController] Server listening on port {NetworkManager.Instance.port}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GameController] Failed to start server: {ex.Message}");
+                ReturnToMenu();
+                return;
+            }
         }
         
         // Inicializar componentes de juego
@@ -134,7 +144,6 @@ public class GameController : MonoBehaviour
         
         SetupEventListeners();
         SetupInput();
-        //SetupCamera();
         
         sessionStartTime = Time.time;
         lastPacketTime = Time.time;
