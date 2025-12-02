@@ -42,6 +42,23 @@ namespace BrickOps.Players
         [Tooltip("Layers que bloquean la cámara")]
         public LayerMask collisionLayers = -1;
 
+        [Header("Shoulder Switch Settings")]
+        [Tooltip("Transform de la cámara en hombro derecho (define posición en el editor)")]
+        public Transform rightShoulderCamera;
+        
+        [Tooltip("Transform de la cámara en hombro izquierdo (define posición en el editor)")]
+        public Transform leftShoulderCamera;
+        
+        [Tooltip("Offset lateral para hombro derecho (fallback si no hay transform)")]
+        public Vector3 rightShoulderOffset = new Vector3(0.5f, 0f, 0f);
+        
+        [Tooltip("Offset lateral para hombro izquierdo (fallback si no hay transform)")]
+        public Vector3 leftShoulderOffset = new Vector3(-0.5f, 0f, 0f);
+        
+        [Tooltip("Velocidad de transición entre hombros")]
+        [Range(1f, 20f)]
+        public float shoulderSwitchSpeed = 10f;
+
         [Header("Zoom Settings")]
         [Tooltip("FOV normal")]
         public float normalFOV = 60f;
@@ -90,6 +107,11 @@ namespace BrickOps.Players
         private float shakeTime;
         private float jumpShakeTimer;
         private bool isJumpShaking;
+        
+        // Shoulder switching
+        private bool isRightShoulder = true;
+        private Vector3 currentShoulderOffset;
+        private Vector3 targetShoulderOffset;
         #endregion
 
         #region Unity Lifecycle
@@ -103,10 +125,23 @@ namespace BrickOps.Players
             {
                 Debug.LogError("[CameraController] PlayerRoot not assigned!");
             }
+            
+            // Inicializar con hombro derecho
+            if (rightShoulderCamera != null)
+            {
+                currentShoulderOffset = rightShoulderCamera.localPosition;
+                targetShoulderOffset = rightShoulderCamera.localPosition;
+            }
+            else
+            {
+                currentShoulderOffset = rightShoulderOffset;
+                targetShoulderOffset = rightShoulderOffset;
+            }
         }
 
         void LateUpdate()
         {
+            HandleShoulderSwitch();
             HandleCameraRotation();
             UpdateCameraPositionAndRotation();
             UpdateZoom();
@@ -114,6 +149,30 @@ namespace BrickOps.Players
         #endregion
 
         #region Camera Logic
+        /// <summary>
+        /// Maneja el cambio de hombro al presionar Q
+        /// </summary>
+        void HandleShoulderSwitch()
+        {
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                isRightShoulder = !isRightShoulder;
+                
+                // Determinar offset objetivo según el hombro activo
+                if (isRightShoulder)
+                {
+                    targetShoulderOffset = rightShoulderCamera != null ? rightShoulderCamera.localPosition : rightShoulderOffset;
+                }
+                else
+                {
+                    targetShoulderOffset = leftShoulderCamera != null ? leftShoulderCamera.localPosition : leftShoulderOffset;
+                }
+            }
+            
+            // Interpolar SIEMPRE suavemente hacia el offset objetivo
+            currentShoulderOffset = Vector3.Lerp(currentShoulderOffset, targetShoulderOffset, Time.deltaTime * shoulderSwitchSpeed);
+        }
+
         /// <summary>
         /// Maneja SOLO la rotación por input del mouse
         /// </summary>
@@ -140,8 +199,8 @@ namespace BrickOps.Players
             // 1. Calcular rotación final (SOLO por input del mouse)
             Quaternion cameraRotation = Quaternion.Euler(verticalRotation, horizontalRotation, 0f);
             
-            // 2. Punto objetivo (pivot): posición del jugador + offset en espacio local
-            Vector3 pivotPosition = playerRoot.position + playerRoot.TransformDirection(cameraOffset);
+            // 2. Punto objetivo (pivot): posición del jugador + offset de hombro interpolado en espacio local
+            Vector3 pivotPosition = playerRoot.position + playerRoot.TransformDirection(currentShoulderOffset);
             
             // 3. Posición deseada de la cámara: detrás del pivot según la rotación
             Vector3 desiredCameraPosition = pivotPosition - (cameraRotation * Vector3.forward * cameraDistance);
