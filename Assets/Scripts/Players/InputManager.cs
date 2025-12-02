@@ -53,9 +53,11 @@ public class InputManager : MonoBehaviour
     private int currentShootCount;
     private int currentJumpCount;
     private bool justShot; // Para cancelar el correr al disparar
+    private float shootAnimationTimer; // Timer para mantener Upper Body Layer activo
     
     private const int TRIGGER_BUFFER_DURATION = 10;
     private const float JUMP_GROUND_CHECK_DELAY = 0.2f;
+    private const float SHOOT_ANIMATION_DURATION = 0.9f; // Duración para mantener layer activo
     #endregion
 
     #region Animation Hashes
@@ -259,6 +261,9 @@ public class InputManager : MonoBehaviour
             lastShootTime = Time.time;
             shootBufferFrames = TRIGGER_BUFFER_DURATION;
             
+            // Reiniciar timer para mantener Upper Body Layer activo (extender si ya estaba activo)
+            shootAnimationTimer = SHOOT_ANIMATION_DURATION;
+            
             if (animator != null)
             {
                 animator.SetTrigger(HashShoot);
@@ -268,6 +273,12 @@ public class InputManager : MonoBehaviour
             {
                 cameraShake.ShakeOnShoot();
             }
+        }
+        
+        // Decrementar timer de animación de disparo
+        if (shootAnimationTimer > 0)
+        {
+            shootAnimationTimer -= Time.deltaTime;
         }
     }
     #endregion
@@ -426,6 +437,13 @@ public class InputManager : MonoBehaviour
         animator.SetBool(HashIsWalking, isMoving && !isRunning);
         animator.SetBool(HashIsRunning, isRunning);
         animator.SetBool(HashIsAiming, isAiming);
+        
+        // Controlar el peso de la Upper Body Layer (Layer 1)
+        // Activar cuando: está apuntando O acaba de disparar (timer activo)
+        float targetWeight = (isAiming || shootAnimationTimer > 0) ? 1f : 0f;
+        float currentWeight = animator.GetLayerWeight(1);
+        float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * 10f);
+        animator.SetLayerWeight(1, newWeight);
     }
     #endregion
 

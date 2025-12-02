@@ -43,6 +43,17 @@ namespace BrickOps.UI
         [Tooltip("Velocidad de transición (mayor = más rápido)")]
         [Range(1f, 30f)]
         public float smoothSpeed = 15f;
+        
+        [Header("Shoot Expansion Settings")]
+        [Tooltip("Expansión adicional del gap al disparar")]
+        public float shootExpansion = 5f;
+        
+        [Tooltip("Duración de la expansión por disparo (segundos)")]
+        public float shootExpansionDuration = 0.1f;
+        
+        [Tooltip("Velocidad de recuperación de la expansión")]
+        [Range(1f, 30f)]
+        public float shootRecoverySpeed = 8f;
 
         [Header("Visual Settings")]
         [Tooltip("Grosor de las líneas")]
@@ -73,6 +84,11 @@ namespace BrickOps.UI
         private Image[] lineImages;
         private Image centerDotImage;
         private Canvas parentCanvas;
+        
+        // Sistema de expansión por disparo
+        private float shootExpansionTimer;
+        private float currentShootExpansion;
+        private int lastShootCount = -1;
         #endregion
 
         #region Unity Lifecycle
@@ -107,6 +123,7 @@ namespace BrickOps.UI
             }
             
             UpdateCrosshairSpread();
+            UpdateShootExpansion();
             UpdateCenterDotPosition();
         }
         #endregion
@@ -222,8 +239,53 @@ namespace BrickOps.UI
             // Suavizar la transición
             currentGap = Mathf.Lerp(currentGap, targetGap, Time.deltaTime * smoothSpeed);
             
-            // Actualizar posiciones de las líneas
+            // Actualizar posiciones de las líneas (incluyendo expansión por disparo)
             UpdateLinePositions();
+        }
+        
+        /// <summary>
+        /// Actualiza la expansión temporal del crosshair al disparar
+        /// </summary>
+        void UpdateShootExpansion()
+        {
+            if (weaponController == null) return;
+            
+            // Detectar nuevo disparo comparando el shootCount
+            int currentShootCount = GetCurrentShootCount();
+            if (lastShootCount != -1 && currentShootCount > lastShootCount)
+            {
+                // Nuevo disparo detectado - activar expansión
+                shootExpansionTimer = shootExpansionDuration;
+                currentShootExpansion = shootExpansion;
+            }
+            lastShootCount = currentShootCount;
+            
+            // Decrementar timer
+            if (shootExpansionTimer > 0)
+            {
+                shootExpansionTimer -= Time.deltaTime;
+            }
+            
+            // Recuperar expansión suavemente
+            float targetExpansion = shootExpansionTimer > 0 ? shootExpansion : 0f;
+            currentShootExpansion = Mathf.Lerp(currentShootExpansion, targetExpansion, Time.deltaTime * shootRecoverySpeed);
+        }
+        
+        /// <summary>
+        /// Obtiene el contador de disparos actual del arma
+        /// </summary>
+        int GetCurrentShootCount()
+        {
+            // Necesitamos acceder al InputManager para obtener el shootCount
+            if (inputManager != null)
+            {
+                var state = inputManager.GetCurrentPlayerState(0); // ID 0 es temporal
+                if (state != null)
+                {
+                    return state.shootCount;
+                }
+            }
+            return 0;
         }        float GetTargetGapForCurrentState()
         {
             // Prioridad 1: Si está saltando (no está en el suelo)
@@ -277,24 +339,27 @@ namespace BrickOps.UI
 
         void UpdateLinePositions()
         {
+            // Aplicar gap base + expansión por disparo
+            float finalGap = currentGap + currentShootExpansion;
+            
             // Las barras permanecen en el centro, solo cambia su separación (gap)
             if (topLine != null)
             {
-                topLine.anchoredPosition = new Vector2(0, currentGap + lineLength / 2);
+                topLine.anchoredPosition = new Vector2(0, finalGap + lineLength / 2);
             }
             
             if (bottomLine != null)
             {
-                bottomLine.anchoredPosition = new Vector2(0, -(currentGap + lineLength / 2));
+                bottomLine.anchoredPosition = new Vector2(0, -(finalGap + lineLength / 2));
             }
             
             if (leftLine != null)
             {
-                leftLine.anchoredPosition = new Vector2(-(currentGap + lineLength / 2), 0);
+                leftLine.anchoredPosition = new Vector2(-(finalGap + lineLength / 2), 0);
             }
               if (rightLine != null)
             {
-                rightLine.anchoredPosition = new Vector2(currentGap + lineLength / 2, 0);
+                rightLine.anchoredPosition = new Vector2(finalGap + lineLength / 2, 0);
             }
             
             // El centerDot NO se mueve aquí, se actualiza en UpdateCenterDotPosition()

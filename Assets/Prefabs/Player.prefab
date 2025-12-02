@@ -1035,7 +1035,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraShake
   shootShake:
     duration: 0.15
-    magnitude: 0.1
+    magnitude: 0.25
     frequency: 30
     dampingCurve:
       serializedVersion: 2

@@ -201,17 +201,39 @@ namespace BrickOps.Players
                 Vector3 directionToCamera = desiredPosition - safeStartPosition;
                 float distanceToCamera = directionToCamera.magnitude;
                 
-                // Raycast simple desde posición segura hacia cámara
-                if (Physics.Raycast(safeStartPosition, directionToCamera.normalized, out RaycastHit hit, distanceToCamera, collisionLayers))
+                // Raycast simple desde posición segura hacia cámara (ignorando al jugador)
+                RaycastHit[] hits = Physics.RaycastAll(safeStartPosition, directionToCamera.normalized, distanceToCamera, collisionLayers);
+                
+                // Filtrar hits que pertenecen al jugador
+                RaycastHit? validHit = null;
+                float closestDistance = distanceToCamera;
+                
+                foreach (RaycastHit hit in hits)
                 {
-                    // Si hay colisión, colocar cámara justo antes del obstáculo
-                    finalCameraPosition = hit.point - directionToCamera.normalized * collisionRadius;
+                    // Ignorar colliders que son parte del jugador
+                    if (hit.collider.transform.IsChildOf(playerRoot) || hit.collider.transform == playerRoot)
+                        continue;
+                    
+                    if (hit.distance < closestDistance)
+                    {
+                        closestDistance = hit.distance;
+                        validHit = hit;
+                    }
+                }
+                
+                if (validHit.HasValue)
+                {
+                    // Si hay colisión válida, colocar cámara justo antes del obstáculo
+                    Vector3 collisionPosition = validHit.Value.point - directionToCamera.normalized * collisionRadius;
+                    
+                    // Suavizar transición para evitar saltos bruscos
+                    finalCameraPosition = Vector3.Lerp(finalCameraPosition, collisionPosition, Time.deltaTime * 15f);
                 }
             }
             
-            // 4. Aplicar shake
+            // 4. Aplicar shake (en espacio de la cámara para movimiento correcto)
             Vector3 shakeOffset = CalculateShakeOffset();
-            finalCameraPosition += playerRoot.TransformDirection(shakeOffset);
+            finalCameraPosition += transform.TransformDirection(shakeOffset);
             
             // 5. Aplicar posición suavizada
             transform.position = Vector3.Lerp(transform.position, finalCameraPosition, Time.deltaTime * followSpeed);

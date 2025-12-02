@@ -25,7 +25,9 @@ namespace BrickOps.Players
         // Sistema de buffer para triggers (solución para eventos de un frame)
         private int shootBufferFrames = 0;
         private int jumpBufferFrames = 0;
+        private float shootAnimationTimer = 0f; // Timer para mantener Upper Body Layer activo
         private const int TRIGGER_BUFFER_DURATION = 10; // Mantener trigger activo por 5 frames
+        private const float SHOOT_ANIMATION_DURATION = 0.3f; // Duración para mantener layer activo
 
         // Hashes de parámetros del Animator (optimización)
         private static readonly int HashIsWalking = Animator.StringToHash("IsWalking");
@@ -98,6 +100,7 @@ namespace BrickOps.Players
             if (lastShootCount != -1 && state.shootCount > lastShootCount)
             {
                 animator.SetTrigger(HashShoot);
+                shootAnimationTimer = SHOOT_ANIMATION_DURATION; // Iniciar timer
             }
             lastShootCount = state.shootCount;
 
@@ -159,6 +162,19 @@ namespace BrickOps.Players
                     Debug.Log($"[RemotePlayerAnimator] Jump buffer maintained (frames left: {jumpBufferFrames})");
             }
             lastJumping = state.isJumping;
+            
+            // Decrementar timer de animación de disparo
+            if (shootAnimationTimer > 0)
+            {
+                shootAnimationTimer -= Time.deltaTime;
+            }
+            
+            // Controlar el peso de la Upper Body Layer (Layer 1)
+            // Activar cuando: está apuntando O acaba de disparar (timer activo)
+            float targetWeight = (state.isAiming || shootAnimationTimer > 0) ? 1f : 0f;
+            float currentWeight = animator.GetLayerWeight(1);
+            float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * 10f);
+            animator.SetLayerWeight(1, newWeight);
         }
 
         /// <summary>
@@ -173,6 +189,7 @@ namespace BrickOps.Players
             animator.SetBool(HashIsRunning, false);
             animator.SetBool(HashIsAiming, false);
             animator.SetBool(HashIsGrounded, true);
+            animator.SetLayerWeight(1, 0f); // Resetear Upper Body Layer
 
             lastWalking = false;
             lastRunning = false;

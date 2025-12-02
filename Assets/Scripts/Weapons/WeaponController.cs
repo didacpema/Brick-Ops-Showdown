@@ -88,6 +88,7 @@ public class WeaponController : MonoBehaviour
     private bool isMoving = false;
     private bool isRunning = false;
     private bool isGrounded = true;
+    private Vector3 lastTargetPosition; // Para suavizar movimiento del target
     #endregion
 
     #region Unity Lifecycle
@@ -403,7 +404,16 @@ public class WeaponController : MonoBehaviour
             targetPosition = playerCamera.transform.position + playerCamera.transform.forward * range;
         }
         
-        aimPointer.position = targetPosition;
+        // Suavizar movimiento del target para evitar sacudidas durante shake de cámara
+        // Usar velocidad alta para mantener precisión pero eliminar jitter
+        if (lastTargetPosition == Vector3.zero)
+        {
+            lastTargetPosition = targetPosition;
+        }
+        
+        float smoothSpeed = 25f; // Alta velocidad para precisión
+        lastTargetPosition = Vector3.Lerp(lastTargetPosition, targetPosition, Time.deltaTime * smoothSpeed);
+        aimPointer.position = lastTargetPosition;
     }
     
     /// <summary>
