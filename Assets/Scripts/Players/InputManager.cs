@@ -14,9 +14,6 @@ public class InputManager : MonoBehaviour
     public float walkSpeed = 3f;
     public float runSpeed = 6f;
 
-    [Header("Rotation")]
-    public float mouseSensitivity = 2f;
-
     [Header("Jump")]
     public float jumpForce = 4f;
     public float jumpCooldown = 1f;
@@ -218,10 +215,12 @@ public class InputManager : MonoBehaviour
 
     void CaptureRotationInput()
     {
-        float mouseInput = Input.GetAxis("Mouse X");
+        // Obtener sensibilidad de la cámara
+        float sensitivity = cameraController != null ? cameraController.mouseSensitivity : 2f;
+        float mouseInput = Input.GetAxis("Mouse X") * sensitivity;
         if (Mathf.Abs(mouseInput) > 0.001f)
         {
-            mouseX += mouseInput * mouseSensitivity;
+            mouseX += mouseInput;
         }
 
         // Always enforce rotation from mouseX so physics can't drift it

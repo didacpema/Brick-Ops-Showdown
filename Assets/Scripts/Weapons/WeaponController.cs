@@ -52,6 +52,9 @@ public class WeaponController : MonoBehaviour
     [Tooltip("Distancia por defecto del puntero si no hay obstáculos")]
     public float defaultPointerDistance = 50f;
     
+    [Tooltip("Distancia mínima del target desde el jugador (evita apuntar demasiado cerca)")]
+    public float minTargetDistance = 2f;
+    
     [Tooltip("Crear automáticamente el aim pointer si no está asignado")]
     public bool autoCreatePointer = false;
 
@@ -366,25 +369,64 @@ public class WeaponController : MonoBehaviour
     }
     
     /// <summary>
-    /// Actualiza la posición del aim pointer basándose en raycasts desde la cámara
+    /// Actualiza la posición del aim pointer: siempre en el centro de la pantalla (desde la cámara)
+    /// Este es el punto "justo" donde el jugador está apuntando
     /// </summary>
     void UpdateAimPointerPosition()
     {
-        if (playerCamera == null || aimPointer == null) return;
+        if (aimPointer == null || playerCamera == null) return;
         
-        // Raycast desde el centro de la pantalla
-        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        // El target SIEMPRE está en el centro de la pantalla (dirección de la cámara)
+        // Esto garantiza disparos justos y predecibles
+        Ray cameraRay = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        Vector3 targetPosition;
         
-        if (Physics.Raycast(ray, out RaycastHit hit, range, hitLayers))
+        if (Physics.Raycast(cameraRay, out RaycastHit hit, range, hitLayers))
         {
-            // Si hay un hit, posicionar el pointer en el punto de impacto
-            aimPointer.position = hit.point;
+            // Hay un objeto en el centro de la pantalla
+            // Verificar que esté a distancia mínima de la cámara
+            float distanceFromCamera = Vector3.Distance(playerCamera.transform.position, hit.point);
+            
+            if (distanceFromCamera < minTargetDistance)
+            {
+                // Está muy cerca, usar distancia mínima desde la cámara
+                targetPosition = playerCamera.transform.position + playerCamera.transform.forward * minTargetDistance;
+            }
+            else
+            {
+                targetPosition = hit.point;
+            }
         }
         else
         {
-            // Si no hay hit, posicionar a distancia por defecto
-            aimPointer.position = playerCamera.transform.position + playerCamera.transform.forward * defaultPointerDistance;
+            // No hay obstáculos, posicionar a distancia máxima
+            targetPosition = playerCamera.transform.position + playerCamera.transform.forward * range;
         }
+        
+        aimPointer.position = targetPosition;
+    }
+    
+    /// <summary>
+    /// Obtiene el punto real donde impactará la bala considerando obstáculos desde el muzzle
+    /// </summary>
+    public Vector3 GetActualBulletImpactPoint()
+    {
+        if (muzzlePoint == null || aimPointer == null) 
+            return aimPointer != null ? aimPointer.position : transform.position + transform.forward * range;
+        
+        // Calcular dirección desde el muzzle hacia el target (centro de pantalla)
+        Vector3 directionToTarget = (aimPointer.position - muzzlePoint.position).normalized;
+        float distanceToTarget = Vector3.Distance(muzzlePoint.position, aimPointer.position);
+        
+        // Raycast de comprobación desde el muzzle hacia el target
+        if (Physics.Raycast(muzzlePoint.position, directionToTarget, out RaycastHit muzzleHit, distanceToTarget, hitLayers))
+        {
+            // Hay un obstáculo entre el muzzle y el target - la bala impactará aquí
+            return muzzleHit.point;
+        }
+        
+        // No hay obstáculos, la bala llegará al target
+        return aimPointer.position;
     }
     #endregion
 

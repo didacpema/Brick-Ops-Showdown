@@ -186,6 +186,7 @@ Transform:
   - {fileID: 4032891879735098094}
   - {fileID: 7145979790750149484}
   - {fileID: 8766065758849267032}
+  - {fileID: 5054053038973749538}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &5145801595520724822
@@ -306,6 +307,7 @@ MonoBehaviour:
   runningSpread: 0.08
   jumpingSpread: 0.1
   defaultPointerDistance: 50
+  minTargetDistance: 4
   autoCreatePointer: 1
   muzzleFlashPrefab: {fileID: 766667796609424318, guid: eb74a6095642f2a49a63d53e64af3e5d, type: 3}
   impactEffectPrefab: {fileID: 1845564405670952755, guid: b569e0cb9b1f1544292ca9217d2907ea, type: 3}
@@ -348,7 +350,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InputManager
   walkSpeed: 3
   runSpeed: 6
-  mouseSensitivity: 2
   jumpForce: 4
   jumpCooldown: 0.8
   groundCheckDistance: 1.1
@@ -777,7 +778,6 @@ Transform:
   - {fileID: 7956185586418420372}
   - {fileID: 2876547873230349892}
   - {fileID: 366077443479519460}
-  - {fileID: 5054053038973749538}
   m_Father: {fileID: 4167314658848518288}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1173048494282681155
@@ -996,13 +996,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BrickOps.Players.CameraController
   playerRoot: {fileID: 6024411581818499261}
-  cameraOffset: {x: 1.4, y: 1.74, z: 0}
-  cameraDistance: 3
+  targetDistance: 10
+  targetHeight: 1.5
+  cameraVerticalAdjustment: 4
   followSpeed: 30
   mouseSensitivity: 2
   maxVerticalAngle: 60
   minVerticalAngle: -60
-  enableCameraCollision: 0
+  enableCameraCollision: 1
   collisionRadius: 0.3
   collisionLayers:
     serializedVersion: 2
@@ -1012,7 +1013,6 @@ MonoBehaviour:
   rightShoulderOffset: {x: 0, y: 0, z: 0}
   leftShoulderOffset: {x: 0, y: 0, z: 0}
   shoulderSwitchSpeed: 10
-  normalFOV: 60
   aimFOV: 40
   sprintFOV: 70
   zoomSpeed: 10
@@ -1673,12 +1673,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4270364385414802616}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.70790046, y: -0.0031871195, z: 0.0020683256, w: 0.7063021}
-  m_LocalPosition: {x: -0.0003103819, y: 0.018865699, z: -0.00041989618}
-  m_LocalScale: {x: 0.010000001, y: 0.009999998, z: 0.009999997}
+  m_LocalRotation: {x: 0.000000029802312, y: -0.003446757, z: -0.000000020605505, w: 0.99999404}
+  m_LocalPosition: {x: 0.46000034, y: 1.8010002, z: 1.574001}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 9133983058094925685}
+  m_Father: {fileID: 2388141480348728957}
   m_LocalEulerAnglesHint: {x: 0, y: -0.395, z: 0}
 --- !u!1 &4431644584993806440
 GameObject:
@@ -1895,7 +1895,7 @@ Transform:
   m_GameObject: {fileID: 5066990683025758366}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.5, y: 1.8, z: 0}
+  m_LocalPosition: {x: 1.53, y: 1.96, z: -2.87}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2550,7 +2550,7 @@ Transform:
   m_GameObject: {fileID: 6989317307162554814}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -1.5, y: 1.8, z: 0}
+  m_LocalPosition: {x: -1.53, y: 1.96, z: -2.87}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
