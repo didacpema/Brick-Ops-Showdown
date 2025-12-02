@@ -55,6 +55,10 @@ public class WeaponController : MonoBehaviour
     [Tooltip("Distancia mínima del target desde el jugador (evita apuntar demasiado cerca)")]
     public float minTargetDistance = 2f;
     
+    [Tooltip("Velocidad de suavizado del target (mayor = más responsivo)")]
+    [Range(1f, 300f)]
+    public float targetSmoothSpeed = 300f;
+    
     [Tooltip("Crear automáticamente el aim pointer si no está asignado")]
     public bool autoCreatePointer = false;
 
@@ -405,14 +409,12 @@ public class WeaponController : MonoBehaviour
         }
         
         // Suavizar movimiento del target para evitar sacudidas durante shake de cámara
-        // Usar velocidad alta para mantener precisión pero eliminar jitter
         if (lastTargetPosition == Vector3.zero)
         {
             lastTargetPosition = targetPosition;
         }
         
-        float smoothSpeed = 25f; // Alta velocidad para precisión
-        lastTargetPosition = Vector3.Lerp(lastTargetPosition, targetPosition, Time.deltaTime * smoothSpeed);
+        lastTargetPosition = Vector3.Lerp(lastTargetPosition, targetPosition, Time.deltaTime * targetSmoothSpeed);
         aimPointer.position = lastTargetPosition;
     }
     
