@@ -163,6 +163,7 @@ namespace BrickOps.Editor
                 input.walkSpeed = 5f;
                 input.runSpeed = 8f;
                 input.aimWalkSpeed = 3f;
+                input.crouchSpeed = 2f;
                 input.jumpForce = 4f;
                 input.jumpCooldown = 1f;
                 input.groundCheckDistance = 1.1f;

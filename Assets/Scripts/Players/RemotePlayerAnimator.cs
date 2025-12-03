@@ -16,23 +16,20 @@ namespace BrickOps.Players
         private bool lastWalking = false;
         private bool lastRunning = false;
         private bool lastAiming = false;
+        private bool lastCrouching = false;
         private bool lastGrounded = true;
-        private bool lastShooting = false;
-        private bool lastJumping = false;
         private int lastShootCount = -1;
         private int lastJumpCount = -1;
 
-        // Sistema de buffer para triggers (solución para eventos de un frame)
-        private int shootBufferFrames = 0;
-        private int jumpBufferFrames = 0;
-        private float shootAnimationTimer = 0f; // Timer para mantener Upper Body Layer activo
-        private const int TRIGGER_BUFFER_DURATION = 10; // Mantener trigger activo por 5 frames
-        private const float SHOOT_ANIMATION_DURATION = 0.3f; // Duración para mantener layer activo
+        // Timer para mantener Upper Body Layer activo
+        private float shootAnimationTimer = 0f;
+        private const float SHOOT_ANIMATION_DURATION = 0.6f;
 
         // Hashes de parámetros del Animator (optimización)
         private static readonly int HashIsWalking = Animator.StringToHash("IsWalking");
         private static readonly int HashIsRunning = Animator.StringToHash("IsRunning");
         private static readonly int HashIsAiming = Animator.StringToHash("IsAiming");
+        private static readonly int HashIsCrouching = Animator.StringToHash("IsCrouching");
         private static readonly int HashIsGrounded = Animator.StringToHash("IsGrounded");
         private static readonly int HashJump = Animator.StringToHash("Jump");
         private static readonly int HashShoot = Animator.StringToHash("Shoot");
@@ -83,85 +80,52 @@ namespace BrickOps.Players
             {
                 animator.SetBool(HashIsWalking, state.isWalking);
                 lastWalking = state.isWalking;
-                
-                if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] Walking: {state.isWalking}");
             }
 
             if (state.isRunning != lastRunning)
             {
                 animator.SetBool(HashIsRunning, state.isRunning);
                 lastRunning = state.isRunning;
-                
-                if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] Running: {state.isRunning}");
             }
-            // DETECTAR DISPARO (Si el número cambió, dispara)
-            if (lastShootCount != -1 && state.shootCount > lastShootCount)
-            {
-                animator.SetTrigger(HashShoot);
-                shootAnimationTimer = SHOOT_ANIMATION_DURATION; // Iniciar timer
-            }
-            lastShootCount = state.shootCount;
-
-            // DETECTAR SALTO
-            if (lastJumpCount != -1 && state.jumpCount > lastJumpCount)
-            {
-                animator.SetTrigger(HashJump);
-            }
-            lastJumpCount = state.jumpCount;
 
             if (state.isAiming != lastAiming)
             {
                 animator.SetBool(HashIsAiming, state.isAiming);
                 lastAiming = state.isAiming;
-                
-                if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] Aiming: {state.isAiming}");
+            }
+
+            if (state.isCrouching != lastCrouching)
+            {
+                animator.SetBool(HashIsCrouching, state.isCrouching);
+                lastCrouching = state.isCrouching;
             }
 
             if (state.isGrounded != lastGrounded)
             {
                 animator.SetBool(HashIsGrounded, state.isGrounded);
                 lastGrounded = state.isGrounded;
-                
-                if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] Grounded: {state.isGrounded}");
-            }            // Triggers - se activan cuando hay cambio de false a true
-            // Usamos un sistema de buffer para que los triggers no se pierdan
-            if (state.isShooting && !lastShooting)
+            }
+
+            // Detectar disparo por cambio en shootCount
+            if (lastShootCount != -1 && state.shootCount > lastShootCount)
             {
                 animator.SetTrigger(HashShoot);
-                shootBufferFrames = TRIGGER_BUFFER_DURATION;
+                shootAnimationTimer = SHOOT_ANIMATION_DURATION;
                 
                 if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] 💥 Shoot triggered! (Buffer: {TRIGGER_BUFFER_DURATION} frames)");
+                    Debug.Log($"[RemotePlayerAnimator] 💥 Shoot triggered! Count: {state.shootCount}");
             }
-            // Si el trigger sigue activo y el buffer no ha expirado, re-activarlo
-            if (state.isShooting && shootBufferFrames > 0)
-            {
-                // NO re-activar trigger, solo mantener el buffer
-                if (showDebug && shootBufferFrames == TRIGGER_BUFFER_DURATION - 1)
-                    Debug.Log($"[RemotePlayerAnimator] 💥 Shoot buffer maintained (frames left: {shootBufferFrames})");
-            }
-            lastShooting = state.isShooting;
+            lastShootCount = state.shootCount;
 
-            if (state.isJumping && !lastJumping)
+            // Detectar salto por cambio en jumpCount
+            if (lastJumpCount != -1 && state.jumpCount > lastJumpCount)
             {
                 animator.SetTrigger(HashJump);
-                jumpBufferFrames = TRIGGER_BUFFER_DURATION;
                 
                 if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] Jump triggered! (Buffer: {TRIGGER_BUFFER_DURATION} frames)");
+                    Debug.Log($"[RemotePlayerAnimator] Jump triggered! Count: {state.jumpCount}");
             }
-            // Si el trigger sigue activo y el buffer no ha expirado, re-activarlo
-            if (state.isJumping && jumpBufferFrames > 0)
-            {
-                // NO re-activar trigger, solo mantener el buffer
-                if (showDebug && jumpBufferFrames == TRIGGER_BUFFER_DURATION - 1)
-                    Debug.Log($"[RemotePlayerAnimator] Jump buffer maintained (frames left: {jumpBufferFrames})");
-            }
-            lastJumping = state.isJumping;
+            lastJumpCount = state.jumpCount;
             
             // Decrementar timer de animación de disparo
             if (shootAnimationTimer > 0)
@@ -188,15 +152,15 @@ namespace BrickOps.Players
             animator.SetBool(HashIsWalking, false);
             animator.SetBool(HashIsRunning, false);
             animator.SetBool(HashIsAiming, false);
+            animator.SetBool(HashIsCrouching, false);
             animator.SetBool(HashIsGrounded, true);
-            animator.SetLayerWeight(1, 0f); // Resetear Upper Body Layer
+            animator.SetLayerWeight(1, 0f);
 
             lastWalking = false;
             lastRunning = false;
             lastAiming = false;
+            lastCrouching = false;
             lastGrounded = true;
-            lastShooting = false;
-            lastJumping = false;
 
             Debug.Log($"[RemotePlayerAnimator] Animation state reset on {gameObject.name}");
         }
@@ -205,36 +169,10 @@ namespace BrickOps.Players
         #region Unity Lifecycle
         void Update()
         {
-            // Procesar buffer de triggers
-            ProcessTriggerBuffers();
-        }
-
-        /// <summary>
-        /// Procesa los buffers de triggers para mantenerlos activos por varios frames
-        /// </summary>
-        void ProcessTriggerBuffers()
-        {
-            if (!isInitialized || animator == null)
-                return;
-
-            // Procesar buffer de disparo
-            if (shootBufferFrames > 0)
+            // Decrementar timer de animación de disparo
+            if (shootAnimationTimer > 0)
             {
-                shootBufferFrames--;
-                if (shootBufferFrames == 0 && showDebug)
-                {
-                    Debug.Log($"[RemotePlayerAnimator] Shoot trigger buffer expired");
-                }
-            }
-
-            // Procesar buffer de salto
-            if (jumpBufferFrames > 0)
-            {
-                jumpBufferFrames--;
-                if (jumpBufferFrames == 0 && showDebug)
-                {
-                    Debug.Log($"[RemotePlayerAnimator] Jump trigger buffer expired");
-                }
+                shootAnimationTimer -= Time.deltaTime;
             }
         }
         #endregion

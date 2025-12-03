@@ -14,6 +14,7 @@ public class InputManager : MonoBehaviour
     public float walkSpeed = 5f;
     public float runSpeed = 8f;
     public float aimWalkSpeed = 3f;
+    public float crouchSpeed = 2f;
 
     [Header("Jump")]
     public float jumpForce = 4f;
@@ -44,6 +45,7 @@ public class InputManager : MonoBehaviour
     private bool isMoving;
     private bool isRunning;
     private bool isAiming;
+    private bool isCrouching;
     private float currentMoveSpeed;
       private float lastJumpTime;
     private float lastShootTime;
@@ -63,6 +65,7 @@ public class InputManager : MonoBehaviour
     private static readonly int HashIsWalking = Animator.StringToHash("IsWalking");
     private static readonly int HashIsRunning = Animator.StringToHash("IsRunning");
     private static readonly int HashIsAiming = Animator.StringToHash("IsAiming");
+    private static readonly int HashIsCrouching = Animator.StringToHash("IsCrouching");
     private static readonly int HashIsGrounded = Animator.StringToHash("IsGrounded");
     private static readonly int HashJump = Animator.StringToHash("Jump");
     private static readonly int HashShoot = Animator.StringToHash("Shoot");
@@ -166,6 +169,7 @@ public class InputManager : MonoBehaviour
     {
         CaptureMovementInput();
         CaptureRotationInput();
+        CaptureCrouchInput();
         CaptureJumpInput();
         CaptureAimingInput();
         CaptureShootingInput();
@@ -185,15 +189,25 @@ public class InputManager : MonoBehaviour
             moveDirection += playerTransform.right * horizontal;        if (moveDirection.sqrMagnitude > 1f)
             moveDirection.Normalize();
 
+        // Si intentas correr estando agachado, ponerte de pie automáticamente
+        if (isCrouching && Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f)
+        {
+            isCrouching = false;
+        }
+
         // No permitir correr si acabas de disparar o si estás apuntando
-        bool canRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isAiming && !justShot;
+        bool canRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isAiming && !justShot && !isCrouching;
         isRunning = canRun;
         isMoving = moveDirection.sqrMagnitude > 0.01f;
         
-        // Calcular velocidad según el estado (apuntando usa velocidad reducida)
+        // Calcular velocidad según el estado (prioridad: agachado > apuntando > corriendo > caminando)
         if (isMoving)
         {
-            if (isAiming)
+            if (isCrouching)
+            {
+                currentMoveSpeed = crouchSpeed;
+            }
+            else if (isAiming)
             {
                 currentMoveSpeed = aimWalkSpeed;
             }
@@ -247,11 +261,29 @@ public class InputManager : MonoBehaviour
         playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
     }
 
+    void CaptureCrouchInput()
+    {
+        // Toggle crouch con Ctrl o C
+        if (Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C))
+        {
+            isCrouching = !isCrouching;
+        }
+    }
+
     void CaptureJumpInput()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && CanJump())
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            PerformJump();
+            // Si está agachado, ponerse de pie sin saltar
+            if (isCrouching)
+            {
+                isCrouching = false;
+            }
+            // Si está de pie, saltar normalmente
+            else if (CanJump())
+            {
+                PerformJump();
+            }
         }
     }
 
@@ -455,6 +487,7 @@ public class InputManager : MonoBehaviour
         animator.SetBool(HashIsWalking, isMoving && !isRunning);
         animator.SetBool(HashIsRunning, isRunning);
         animator.SetBool(HashIsAiming, isAiming);
+        animator.SetBool(HashIsCrouching, isCrouching);
         
         // Controlar el peso de la Upper Body Layer (Layer 1)
         // Activar cuando: está apuntando O acaba de disparar (timer activo)
@@ -470,6 +503,7 @@ public class InputManager : MonoBehaviour
     public bool IsMoving() => isMoving;
     public bool IsRunning() => isRunning;
     public bool IsAiming() => isAiming;
+    public bool IsCrouching() => isCrouching;
     public float GetCurrentSpeed() => currentMoveSpeed;
 
     public void ResetMouseRotation()
@@ -482,7 +516,7 @@ public class InputManager : MonoBehaviour
 
     public string GetDebugInfo()
     {
-        return $"Ground: {isGrounded} | Moving: {isMoving} | Running: {isRunning} | " +
+        return $"Ground: {isGrounded} | Moving: {isMoving} | Running: {isRunning} | Crouch: {isCrouching} | " +
                $"Speed: {currentMoveSpeed:F2} | Aiming: {isAiming}";
     }
 
@@ -497,9 +531,8 @@ public class InputManager : MonoBehaviour
             isMoving && !isRunning,
             isRunning,
             isAiming,
+            isCrouching,
             isGrounded,
-            shootBufferFrames > 0,
-            jumpBufferFrames > 0,
             currentShootCount,
             currentJumpCount
         );

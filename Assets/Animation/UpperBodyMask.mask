@@ -13,91 +13,93 @@ AvatarMask:
     m_Weight: 1
   - m_Path: Armature
     m_Weight: 1
-  - m_Path: Armature/main
+  - m_Path: Armature/Bone
     m_Weight: 1
-  - m_Path: Armature/main/brazoID.001
+  - m_Path: Armature/Bone/main
     m_Weight: 1
-  - m_Path: Armature/main/brazoID.001/brazoID.001_end
+  - m_Path: Armature/Bone/main/brazoID.001
     m_Weight: 1
-  - m_Path: Armature/main/brazoII.001
+  - m_Path: Armature/Bone/main/brazoID.001/brazoID.001_end
     m_Weight: 1
-  - m_Path: Armature/main/brazoII.001/brazoII.001_end
+  - m_Path: Armature/Bone/main/brazoII.001
     m_Weight: 1
-  - m_Path: Armature/main/brazoSD.001
+  - m_Path: Armature/Bone/main/brazoII.001/brazoII.001_end
     m_Weight: 1
-  - m_Path: Armature/main/brazoSD.001/brazoSD.001_end
+  - m_Path: Armature/Bone/main/brazoSD.001
     m_Weight: 1
-  - m_Path: Armature/main/brazoSI.001
+  - m_Path: Armature/Bone/main/brazoSD.001/brazoSD.001_end
     m_Weight: 1
-  - m_Path: Armature/main/brazoSI.001/brazoSI.001_end
+  - m_Path: Armature/Bone/main/brazoSI.001
     m_Weight: 1
-  - m_Path: Armature/main/pieD.001
+  - m_Path: Armature/Bone/main/brazoSI.001/brazoSI.001_end
+    m_Weight: 1
+  - m_Path: Armature/Bone/main/pieD.001
     m_Weight: 0
-  - m_Path: Armature/main/pieD.001/pieD.001_end
+  - m_Path: Armature/Bone/main/pieD.001/pieD.001_end
     m_Weight: 1
-  - m_Path: Armature/main/pieI.001
+  - m_Path: Armature/Bone/main/pieI.001
     m_Weight: 0
-  - m_Path: Armature/main/pieI.001/pieI.001_end
+  - m_Path: Armature/Bone/main/pieI.001/pieI.001_end
     m_Weight: 1
-  - m_Path: Armature/main/piernaD
+  - m_Path: Armature/Bone/main/piernaD
     m_Weight: 0
-  - m_Path: Armature/main/piernaD/pieD
+  - m_Path: Armature/Bone/main/piernaD/pieD
     m_Weight: 1
-  - m_Path: Armature/main/piernaD/pieD/piesesitoD
+  - m_Path: Armature/Bone/main/piernaD/pieD/piesesitoD
     m_Weight: 1
-  - m_Path: Armature/main/piernaD/pieD/piesesitoD/piesesitoD_end
+  - m_Path: Armature/Bone/main/piernaD/pieD/piesesitoD/piesesitoD_end
     m_Weight: 1
-  - m_Path: Armature/main/piernaD.001
+  - m_Path: Armature/Bone/main/piernaD.001
     m_Weight: 0
-  - m_Path: Armature/main/piernaD.001/piernaD.001_end
+  - m_Path: Armature/Bone/main/piernaD.001/piernaD.001_end
     m_Weight: 1
-  - m_Path: Armature/main/piernaI
+  - m_Path: Armature/Bone/main/piernaI
     m_Weight: 0
-  - m_Path: Armature/main/piernaI/pieI
+  - m_Path: Armature/Bone/main/piernaI/pieI
     m_Weight: 1
-  - m_Path: Armature/main/piernaI/pieI/piesesitoI
+  - m_Path: Armature/Bone/main/piernaI/pieI/piesesitoI
     m_Weight: 1
-  - m_Path: Armature/main/piernaI/pieI/piesesitoI/piesesitoI_end
+  - m_Path: Armature/Bone/main/piernaI/pieI/piesesitoI/piesesitoI_end
     m_Weight: 1
-  - m_Path: Armature/main/piernaI.001
+  - m_Path: Armature/Bone/main/piernaI.001
     m_Weight: 0
-  - m_Path: Armature/main/piernaI.001/piernaI.001_end
+  - m_Path: Armature/Bone/main/piernaI.001/piernaI.001_end
     m_Weight: 1
-  - m_Path: Armature/main/torsoI
+  - m_Path: Armature/Bone/main/torsoI
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS
+  - m_Path: Armature/Bone/main/torsoI/torsoS
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSD
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSD
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSD/brazoID
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSD/brazoID
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSD/brazoID/manoD
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSD/brazoID/manoD
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSD/brazoID/manoD/manoD_end
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSD/brazoID/manoD/manoD_end
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSI
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSI
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSI/brazoII
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSI/brazoII
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSI/brazoII/manoI
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSI/brazoII/manoI
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/brazoSI/brazoII/manoI/manoI_end
+  - m_Path: Armature/Bone/main/torsoI/torsoS/brazoSI/brazoII/manoI/manoI_end
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/cabeza
+  - m_Path: Armature/Bone/main/torsoI/torsoS/cabeza
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/cabeza/cabeza_end
+  - m_Path: Armature/Bone/main/torsoI/torsoS/cabeza/cabeza_end
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon
+  - m_Path: Armature/Bone/main/torsoI/torsoS/Weapon
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.001
+  - m_Path: Armature/Bone/main/torsoI/torsoS/Weapon/Bone.001
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.001/Bone.001_end
+  - m_Path: Armature/Bone/main/torsoI/torsoS/Weapon/Bone.001/Bone.001_end
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.002
+  - m_Path: Armature/Bone/main/torsoI/torsoS/Weapon/Bone.002
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Bone.002/Bone.002_end
+  - m_Path: Armature/Bone/main/torsoI/torsoS/Weapon/Bone.002/Bone.002_end
     m_Weight: 1
-  - m_Path: Armature/main/torsoI/torsoS/Weapon/Object_2.005
+  - m_Path: Armature/Bone/main/torsoI/torsoS/Weapon/Object_2.005
     m_Weight: 1
   - m_Path: Object_2
     m_Weight: 1
