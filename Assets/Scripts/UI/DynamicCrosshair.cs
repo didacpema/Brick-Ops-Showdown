@@ -122,6 +122,10 @@ namespace BrickOps.UI
                 playerCamera = weaponController.playerCamera;
             }
             
+            // Controlar visibilidad de las líneas según si está apuntando
+            bool isAiming = inputManager != null && inputManager.IsAiming();
+            SetLinesVisible(isAiming);
+            
             UpdateCrosshairSpread();
             UpdateShootExpansion();
             UpdateCenterDotPosition();
@@ -339,40 +343,7 @@ namespace BrickOps.UI
 
         void UpdateLinePositions()
         {
-            // Aplicar gap base + expansión por disparo
-            float finalGap = currentGap + currentShootExpansion;
-            
-            // Las barras permanecen en el centro, solo cambia su separación (gap)
-            if (topLine != null)
-            {
-                topLine.anchoredPosition = new Vector2(0, finalGap + lineLength / 2);
-            }
-            
-            if (bottomLine != null)
-            {
-                bottomLine.anchoredPosition = new Vector2(0, -(finalGap + lineLength / 2));
-            }
-            
-            if (leftLine != null)
-            {
-                leftLine.anchoredPosition = new Vector2(-(finalGap + lineLength / 2), 0);
-            }
-              if (rightLine != null)
-            {
-                rightLine.anchoredPosition = new Vector2(finalGap + lineLength / 2, 0);
-            }
-            
-            // El centerDot NO se mueve aquí, se actualiza en UpdateCenterDotPosition()
-        }
-        
-        /// <summary>
-        /// Actualiza la posición del dot central:
-        /// - Muestra donde está el target (centro de pantalla) normalmente
-        /// - Se adapta si hay un obstáculo entre el muzzle y el target
-        /// </summary>
-        void UpdateCenterDotPosition()
-        {
-            if (centerDot == null || weaponController == null || playerCamera == null) return;
+            if (weaponController == null || playerCamera == null) return;
             
             // Obtener el punto de impacto REAL de la bala (considerando obstáculos desde el muzzle)
             Vector3 actualImpactPoint = weaponController.GetActualBulletImpactPoint();
@@ -381,6 +352,7 @@ namespace BrickOps.UI
             Vector3 screenPoint = playerCamera.WorldToScreenPoint(actualImpactPoint);
             
             // Convertir a coordenadas del canvas
+            Vector2 targetOffset = Vector2.zero;
             if (parentCanvas != null)
             {
                 Vector2 localPoint;
@@ -391,9 +363,43 @@ namespace BrickOps.UI
                     out localPoint
                 );
                 
-                // Aplicar la posición al dot
-                centerDot.anchoredPosition = localPoint;
+                targetOffset = localPoint;
             }
+            
+            // Aplicar gap base + expansión por disparo
+            float finalGap = currentGap + currentShootExpansion;
+            
+            // Las barras se adaptan al obstáculo (siguen el target)
+            if (topLine != null)
+            {
+                topLine.anchoredPosition = targetOffset + new Vector2(0, finalGap + lineLength / 2);
+            }
+            
+            if (bottomLine != null)
+            {
+                bottomLine.anchoredPosition = targetOffset + new Vector2(0, -(finalGap + lineLength / 2));
+            }
+            
+            if (leftLine != null)
+            {
+                leftLine.anchoredPosition = targetOffset + new Vector2(-(finalGap + lineLength / 2), 0);
+            }
+              if (rightLine != null)
+            {
+                rightLine.anchoredPosition = targetOffset + new Vector2(finalGap + lineLength / 2, 0);
+            }
+        }
+        
+        /// <summary>
+        /// Actualiza la posición del dot central:
+        /// - Permanece fijo en el centro de la pantalla
+        /// </summary>
+        void UpdateCenterDotPosition()
+        {
+            if (centerDot == null) return;
+            
+            // El dot permanece fijo en el centro
+            centerDot.anchoredPosition = Vector2.zero;
         }
         #endregion
 
@@ -420,6 +426,17 @@ namespace BrickOps.UI
         public void SetVisible(bool visible)
         {
             gameObject.SetActive(visible);
+        }
+        
+        /// <summary>
+        /// Muestra u oculta solo las líneas del crosshair (no el dot central)
+        /// </summary>
+        void SetLinesVisible(bool visible)
+        {
+            if (topLine != null) topLine.gameObject.SetActive(visible);
+            if (bottomLine != null) bottomLine.gameObject.SetActive(visible);
+            if (leftLine != null) leftLine.gameObject.SetActive(visible);
+            if (rightLine != null) rightLine.gameObject.SetActive(visible);
         }
         #endregion
 
