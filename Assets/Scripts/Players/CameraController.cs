@@ -101,6 +101,10 @@ namespace BrickOps.Players
         [Tooltip("Multiplicador global de shake")]
         [Range(0f, 2f)]
         public float globalShakeMultiplier = 1f;
+
+        [Header("Debug")]
+        [Tooltip("Mostrar gizmos de debug para el sistema de colisión")]
+        public bool showDebugGizmos = false;
         #endregion
         
         #region Private Variables
@@ -198,55 +202,41 @@ namespace BrickOps.Players
             float verticalRadians = verticalRotation * Mathf.Deg2Rad;
             float yAdjustment = -Mathf.Sin(verticalRadians) * cameraVerticalAdjustment;
             float zAdjustment = -Mathf.Cos(verticalRadians) * cameraVerticalAdjustment + cameraVerticalAdjustment;
-            
-            Vector3 adjustedOffset = currentShoulderOffset + new Vector3(0, yAdjustment, zAdjustment);
+              Vector3 adjustedOffset = currentShoulderOffset + new Vector3(0, yAdjustment, zAdjustment);
             Vector3 desiredPosition = playerRoot.position + playerRoot.TransformDirection(adjustedOffset);
             
-            // 3. Sistema de colisión simplificado y efectivo
+            // 3. Sistema de colisión física mejorado
             Vector3 finalCameraPosition = desiredPosition;
             if (enableCameraCollision)
             {
-                // Calcular dirección desde una posición segura cerca del jugador hacia la posición deseada
-                Vector3 safeStartPosition = playerRoot.position + Vector3.up * targetHeight;
-                Vector3 directionToCamera = desiredPosition - safeStartPosition;
-                float distanceToCamera = directionToCamera.magnitude;
+                // Punto de anclaje: centro del jugador a altura del torso
+                Vector3 pivotPoint = playerRoot.position + Vector3.up * targetHeight;
                 
-                // Raycast simple desde posición segura hacia cámara (ignorando al jugador)
-                RaycastHit[] hits = Physics.RaycastAll(safeStartPosition, directionToCamera.normalized, distanceToCamera, collisionLayers);
+                // Dirección y distancia desde el pivot hasta la posición deseada de cámara
+                Vector3 directionToCamera = desiredPosition - pivotPoint;
+                float maxDistance = directionToCamera.magnitude;
                 
-                // Filtrar hits que pertenecen al jugador
-                RaycastHit? validHit = null;
-                float closestDistance = distanceToCamera;
-                
-                foreach (RaycastHit hit in hits)
+                // SphereCast desde el pivot hacia la posición deseada de la cámara
+                // Esto detecta colisiones con un radio, evitando que la cámara atraviese paredes
+                if (Physics.SphereCast(pivotPoint, collisionRadius, directionToCamera.normalized, out RaycastHit hit, maxDistance, collisionLayers))
                 {
-                    // Ignorar colliders que son parte del jugador
-                    if (hit.collider.transform.IsChildOf(playerRoot) || hit.collider.transform == playerRoot)
-                        continue;
-                    
-                    if (hit.distance < closestDistance)
+                    // Verificar que no sea el jugador
+                    if (!hit.collider.transform.IsChildOf(playerRoot) && hit.collider.transform != playerRoot)
                     {
-                        closestDistance = hit.distance;
-                        validHit = hit;
+                        // Colocar la cámara justo antes del punto de colisión
+                        float safeDistance = Mathf.Max(hit.distance - collisionRadius * 0.5f, 0.1f);
+                        finalCameraPosition = pivotPoint + directionToCamera.normalized * safeDistance;
                     }
-                }
-                
-                if (validHit.HasValue)
-                {
-                    // Si hay colisión válida, colocar cámara justo antes del obstáculo
-                    Vector3 collisionPosition = validHit.Value.point - directionToCamera.normalized * collisionRadius;
-                    
-                    // Suavizar transición para evitar saltos bruscos
-                    finalCameraPosition = Vector3.Lerp(finalCameraPosition, collisionPosition, Time.deltaTime * 15f);
                 }
             }
             
-            // 4. Aplicar shake (en espacio de la cámara para movimiento correcto)
+            // 4. Aplicar shake ANTES de aplicar posición (así el shake no atraviesa paredes)
             Vector3 shakeOffset = CalculateShakeOffset();
-            finalCameraPosition += transform.TransformDirection(shakeOffset);
+            Vector3 shakeInWorldSpace = transform.TransformDirection(shakeOffset);
             
-            // 5. Aplicar posición suavizada
-            transform.position = Vector3.Lerp(transform.position, finalCameraPosition, Time.deltaTime * followSpeed);
+            // 5. Aplicar posición suavizada CON shake
+            Vector3 targetPosWithShake = finalCameraPosition + shakeInWorldSpace;
+            transform.position = Vector3.Lerp(transform.position, targetPosWithShake, Time.deltaTime * followSpeed);
             
             // 6. Hacer que la cámara SIEMPRE mire al punto focal (target)
             Vector3 lookDirection = targetPosition - transform.position;
@@ -340,6 +330,72 @@ namespace BrickOps.Players
             Vector3 forwardDirection = playerRoot.forward;
             Vector3 upOffset = Vector3.up * (targetHeight + Mathf.Tan(verticalRotation * Mathf.Deg2Rad) * targetDistance);
             return playerRoot.position + forwardDirection * targetDistance + upOffset;
+        }
+        #endregion
+
+        #region Debug
+        void OnDrawGizmos()
+        {
+            if (!showDebugGizmos || playerRoot == null || !Application.isPlaying) return;
+            
+            // Punto de anclaje (pivot)
+            Vector3 pivotPoint = playerRoot.position + Vector3.up * targetHeight;
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(pivotPoint, 0.1f);
+            
+            // Posición deseada de la cámara (sin colisión)
+            float verticalRadians = verticalRotation * Mathf.Deg2Rad;
+            float yAdjustment = -Mathf.Sin(verticalRadians) * cameraVerticalAdjustment;
+            float zAdjustment = -Mathf.Cos(verticalRadians) * cameraVerticalAdjustment + cameraVerticalAdjustment;
+            Vector3 adjustedOffset = currentShoulderOffset + new Vector3(0, yAdjustment, zAdjustment);
+            Vector3 desiredPosition = playerRoot.position + playerRoot.TransformDirection(adjustedOffset);
+            
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(desiredPosition, 0.15f);
+            
+            // Línea de raycast desde pivot a cámara
+            Vector3 directionToCamera = desiredPosition - pivotPoint;
+            float maxDistance = directionToCamera.magnitude;
+            
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(pivotPoint, desiredPosition);
+            
+            // Visualizar SphereCast
+            if (enableCameraCollision)
+            {
+                if (Physics.SphereCast(pivotPoint, collisionRadius, directionToCamera.normalized, out RaycastHit hit, maxDistance, collisionLayers))
+                {
+                    if (!hit.collider.transform.IsChildOf(playerRoot) && hit.collider.transform != playerRoot)
+                    {
+                        // Punto de colisión
+                        Gizmos.color = Color.red;
+                        Gizmos.DrawWireSphere(hit.point, collisionRadius);
+                        
+                        // Posición final de la cámara (con offset de seguridad)
+                        float safeDistance = Mathf.Max(hit.distance - collisionRadius * 0.5f, 0.1f);
+                        Vector3 finalPos = pivotPoint + directionToCamera.normalized * safeDistance;
+                        Gizmos.color = Color.magenta;
+                        Gizmos.DrawWireSphere(finalPos, 0.15f);
+                        
+                        // Línea desde pivot hasta punto de colisión
+                        Gizmos.color = Color.red;
+                        Gizmos.DrawLine(pivotPoint, hit.point);
+                    }
+                }
+            }
+            
+            // Posición actual de la cámara
+            Gizmos.color = Color.white;
+            Gizmos.DrawWireSphere(transform.position, 0.2f);
+            
+            // Punto focal (target)
+            Vector3 forwardDirection = playerRoot.forward;
+            Vector3 upOffset = Vector3.up * (targetHeight + Mathf.Tan(verticalRotation * Mathf.Deg2Rad) * targetDistance);
+            Vector3 targetPosition = playerRoot.position + forwardDirection * targetDistance + upOffset;
+            
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireSphere(targetPosition, 0.3f);
+            Gizmos.DrawLine(transform.position, targetPosition);
         }
         #endregion
     }
