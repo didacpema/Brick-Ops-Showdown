@@ -22,6 +22,7 @@ namespace BrickOps.Networking
         public const string SERVER_CLOSED = "SERVER_CLOSED";
         public const string BARRICADA_HIT = "BARRICADA_HIT";
         public const string PLAYER_NAME = "PLAYER_NAME";
+        public const string HEALTH_PACK_PICKUP = "HEALTH_PACK_PICKUP";
         #endregion
 
         #region Message Building

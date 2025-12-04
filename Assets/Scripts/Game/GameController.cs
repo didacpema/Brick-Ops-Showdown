@@ -442,8 +442,7 @@ public class GameController : MonoBehaviour
             {
                 BarricadaManager.Instance?.ApplyDamageToBarricada(hitData.barricadaId, hitData.damage);
             }
-            break;
-            case NetworkProtocol.PLAYER_NAME:
+            break;            case NetworkProtocol.PLAYER_NAME:
                 PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
                 if (nameData != null)
                 {
@@ -453,6 +452,11 @@ public class GameController : MonoBehaviour
                     // Si soy servidor, sigo retransmitiendo a los demás
                     if (isServerHost) BroadcastToClients(message, sender as IPEndPoint);
                 }
+                break;
+            
+            case NetworkProtocol.HEALTH_PACK_PICKUP:
+                BroadcastToClients(message, sender);
+                ProcessHealthPackPickup(data);
                 break;
 
             case NetworkProtocol.START_GAME:
@@ -702,6 +706,38 @@ public class GameController : MonoBehaviour
         else
             udpSocket.SendTo(NetworkProtocol.MessageToBytes(msg), serverEndPoint);
     }
+    
+    /// <summary>
+    /// Envía un mensaje genérico a la red
+    /// </summary>
+    public void SendMessageToNetwork(string message)
+    {
+        if (udpSocket == null) 
+        {
+            Debug.LogWarning("[GameController] Cannot send message, socket is null");
+            return;
+        }
+        
+        try
+        {
+            byte[] data = NetworkProtocol.MessageToBytes(message);
+            
+            if (isServerHost)
+            {
+                BroadcastToClients(message);
+            }
+            else
+            {
+                udpSocket.SendTo(data, serverEndPoint);
+            }
+            
+            packetsSent++;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GameController] Error sending message: {ex.Message}");
+        }
+    }
     #endregion
 
     #region Network - Receiving
@@ -765,8 +801,7 @@ public class GameController : MonoBehaviour
 
             case NetworkProtocol.SERVER_CLOSED:
                 HandleServerClosed();
-                break;
-            case NetworkProtocol.PLAYER_NAME:
+                break;            case NetworkProtocol.PLAYER_NAME:
                 PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
                 if (nameData != null)
                 {
@@ -777,6 +812,11 @@ public class GameController : MonoBehaviour
                     if (isServerHost) BroadcastToClients(message);
                 }
                 break;
+            
+            case NetworkProtocol.HEALTH_PACK_PICKUP:
+                ProcessHealthPackPickup(data);
+                break;
+            
             default:
                 Debug.LogWarning($"[GameController] Unknown message type: {messageType}");
                 break;
@@ -902,6 +942,27 @@ public class GameController : MonoBehaviour
         if (nameCache.ContainsKey(id))
         {
             RegisterAndApplyName(id, nameCache[id]);
+        }
+    }
+      void ProcessHealthPackPickup(string jsonData)
+    {
+        HealthPackData healthPackData = NetworkProtocol.DeserializeFromJson<HealthPackData>(jsonData);
+        
+        if (healthPackData == null)
+            return;
+        
+        Debug.Log($"<color=green>[GameController] Processing health pack pickup: Pack {healthPackData.healthPackId} collected by Player {healthPackData.collectorId}</color>");
+        
+        // Buscar el health pack en la escena
+        HealthPack[] healthPacks = FindObjectsByType<HealthPack>(FindObjectsSortMode.None);
+        foreach (HealthPack pack in healthPacks)
+        {
+            if (pack.healthPackId == healthPackData.healthPackId)
+            {
+                // Procesar el pickup en este cliente
+                pack.ProcessNetworkPickup(healthPackData.collectorId);
+                break;
+            }
         }
     }
     #endregion
