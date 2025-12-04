@@ -196,7 +196,8 @@ namespace BrickOps.Players
         }
         #endregion
 
-        #region State Management        /// <summary>
+        #region State Management        
+        /// <summary>
         /// Actualiza el estado de un jugador remoto
         /// </summary>
         public void UpdatePlayerState(int playerId, PlayerState state)

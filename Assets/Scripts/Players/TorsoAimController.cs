@@ -55,7 +55,7 @@ namespace BrickOps.Players
         // Validar torso
         if (torsoTransform == null)
         {
-            Debug.LogError("[TorsoAimController] ❌ TorsoI Transform no asignado!");
+            Debug.LogError("[TorsoAimController] TorsoI Transform no asignado!");
             return;
         }
 
@@ -69,13 +69,13 @@ namespace BrickOps.Players
         cameraController = GetComponentInChildren<CameraController>();
         if (cameraController == null)
         {
-            Debug.LogWarning("[TorsoAimController] ⚠ CameraController no encontrado!");
+            Debug.LogWarning("[TorsoAimController] CameraController no encontrado!");
             return;
         }
 
         // Guardar rotación inicial del torso
         initialTorsoRotation = torsoTransform.localRotation;            isInitialized = true;
-            Debug.Log("[TorsoAimController] ✓ Inicializado correctamente");
+            Debug.Log("[TorsoAimController] Inicializado correctamente");
         }
 
         #region Unity Lifecycle

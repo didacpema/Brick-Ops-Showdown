@@ -127,9 +127,7 @@ namespace BrickOps.Networking
                 socket.Close();
             }
             catch (Exception)
-            {
-                // noop
-            }
+            {}
             finally
             {
                 socket = null;

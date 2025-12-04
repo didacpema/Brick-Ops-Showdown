@@ -50,7 +50,7 @@ public class BarricadaManager : MonoBehaviour
 
         string payload = BarricadaStatePrefix + JsonUtility.ToJson(state);
 
-        // FIX: Intentar enviar usando ServerSceneController O GameController
+        // Intentar enviar usando ServerSceneController O GameController
         if (Server != null)
         {
             Server.BroadcastToClients(payload);

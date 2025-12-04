@@ -56,13 +56,13 @@ namespace BrickOps.Players
 
             if (animator == null)
             {
-                Debug.LogWarning($"[RemotePlayerAnimator] ⚠ Animator not found on {gameObject.name}! Animations will NOT sync.");
+                Debug.LogWarning($"[RemotePlayerAnimator] Animator not found on {gameObject.name}! Animations will NOT sync.");
                 isInitialized = false;
                 return;
             }
 
             isInitialized = true;
-            Debug.Log($"[RemotePlayerAnimator] ✓ Initialized on {gameObject.name}");
+            Debug.Log($"[RemotePlayerAnimator] Initialized on {gameObject.name}");
         }
         #endregion
 
@@ -113,7 +113,7 @@ namespace BrickOps.Players
                 shootAnimationTimer = SHOOT_ANIMATION_DURATION;
                 
                 if (showDebug)
-                    Debug.Log($"[RemotePlayerAnimator] 💥 Shoot triggered! Count: {state.shootCount}");
+                    Debug.Log($"[RemotePlayerAnimator] Shoot triggered! Count: {state.shootCount}");
             }
             lastShootCount = state.shootCount;
 

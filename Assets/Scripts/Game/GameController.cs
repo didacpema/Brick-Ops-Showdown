@@ -114,7 +114,7 @@ public class GameController : MonoBehaviour
         if (NetworkManager.Instance.udpSocket != null)
         {
             udpSocket = NetworkManager.Instance.udpSocket;
-            Debug.Log("[GameController] ✅ Socket reutilizado de la Sala de Espera");
+            Debug.Log("[GameController] Socket reutilizado de la Sala de Espera");
         }
         else
         {
@@ -269,7 +269,7 @@ public class GameController : MonoBehaviour
         }
 
         lastPacketTime = Time.time;
-        Debug.Log("[GameController] ✓ Network configured");
+        Debug.Log("[GameController] Network configured");
         return true;
     }
 
@@ -307,7 +307,7 @@ public class GameController : MonoBehaviour
         EventManager.Instance.OnPlayerRespawned += HandlePlayerRespawn;
         EventManager.Instance.OnPlayerSpawned += HandlePlayerSpawnedName;
 
-        Debug.Log("[GameController] ✓ Event listeners configured");
+        Debug.Log("[GameController] Event listeners configured");
     }
 
     void SetupInput()
@@ -329,23 +329,8 @@ public class GameController : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        Debug.Log("[GameController] ✓ Input configured");
+        Debug.Log("[GameController] Input configured");
     }
-
-    // void SetupCamera()
-    // {
-    //     if (PlayerManager.Instance?.LocalPlayer != null)
-    //     {
-    //         mainCamera = PlayerManager.Instance.LocalPlayer.GetComponentInChildren<Camera>();
-            
-    //         if (mainCamera == null)
-    //         {
-    //             mainCamera = Camera.main;
-    //         }
-    //     }
-
-    //     Debug.Log("[GameController] ✓ Camera configured");
-    // }
     #endregion
 
     #region Server Hosting
@@ -377,9 +362,9 @@ public class GameController : MonoBehaviour
         if (!serverPlayers.ContainsKey(sender))
         {
             string playerName = message.Trim();
-            // TODO: Comprobar que otro no tenga el mismo ID
 
-            int newPlayerId = serverClients.Count + 2; // +2 porque el servidor es Player
+
+            int newPlayerId = serverClients.Count + 1; // IDs empiezan en 1 (servidor es 1)
             
             PlayerInfo playerInfo = new PlayerInfo
             {
@@ -446,7 +431,6 @@ public class GameController : MonoBehaviour
                 PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
                 if (nameData != null)
                 {
-                    // USAMOS EL NUEVO MÉTODO INTELIGENTE
                     RegisterAndApplyName(nameData.playerId, nameData.playerName);
                     
                     // Si soy servidor, sigo retransmitiendo a los demás
@@ -678,8 +662,8 @@ public class GameController : MonoBehaviour
             {
                 // Aplicar daño localmente (como autoridad)
                 BarricadaManager.Instance?.ApplyDamageToBarricada(barricadaId, damage);
-                // El propio Barricada.cs se encargará de hacer Broadcast del nuevo estado
-            }
+                BroadcastToClients(message);
+                }
             else
             {
                 // Si soy Cliente, se lo mando al server
@@ -805,7 +789,6 @@ public class GameController : MonoBehaviour
                 PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
                 if (nameData != null)
                 {
-                    // USAMOS EL NUEVO MÉTODO INTELIGENTE
                     RegisterAndApplyName(nameData.playerId, nameData.playerName);
                     
                     // Si soy servidor, sigo retransmitiendo a los demás
@@ -847,7 +830,7 @@ public class GameController : MonoBehaviour
         if (shootData == null)
             return;
 
-        Debug.Log($"<color=cyan>[Net] Received shoot: {shootData.shooterId} -> {shootData.targetId}</color>");
+        Debug.Log($"<color=blue>[Net] Received shoot: {shootData.shooterId} -> {shootData.targetId}</color>");
 
         // Si YO soy el objetivo, aplicar daño
         if (shootData.targetId == myPlayerId)
@@ -971,12 +954,11 @@ public class GameController : MonoBehaviour
     void CheckConnection()
     {
         float timeSinceLastPacket = Time.time - lastPacketTime;
-        
-        // if (timeSinceLastPacket > connectionTimeout)
-        // {
-        //     Debug.LogWarning($"[GameController] Connection timeout ({timeSinceLastPacket:F1}s)");
-        //     ReturnToMenu();
-        // }
+        if (timeSinceLastPacket > connectionTimeout)
+        {
+            Debug.LogWarning("[GameController] Connection lost due to timeout");
+            ReturnToMenu();
+        }
     }
     #endregion
 
@@ -1019,20 +1001,9 @@ public class GameController : MonoBehaviour
     #region Camera
     void UpdateCamera()
     {
-        // if (mainCamera == null || PlayerManager.Instance?.LocalPlayer == null)
-        //     return;
-
         GameObject localPlayer = PlayerManager.Instance.LocalPlayer;
         Quaternion rotation = localPlayer.transform.rotation;
         Vector3 targetPos = localPlayer.transform.position + rotation * cameraOffset;
-
-        // mainCamera.transform.position = Vector3.Lerp(
-        //     mainCamera.transform.position,
-        //     targetPos,
-        //     Time.deltaTime * cameraFollowSpeed
-        // );
-
-        // mainCamera.transform.LookAt(localPlayer.transform.position + Vector3.up);
     }
     #endregion
 

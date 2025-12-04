@@ -34,16 +34,6 @@ namespace BrickOps.Core
         {
             return new Vector3(hitX, hitY, hitZ);
         }
-
-        public string ToJson()
-        {
-            return JsonUtility.ToJson(this);
-        }
-
-        public static ShootData FromJson(string json)
-        {
-            return JsonUtility.FromJson<ShootData>(json);
-        }
     }
 
     /// <summary>
@@ -61,16 +51,6 @@ namespace BrickOps.Core
         {
             victimId = victim;
             killerId = killer;
-        }
-
-        public string ToJson()
-        {
-            return JsonUtility.ToJson(this);
-        }
-
-        public static DeathData FromJson(string json)
-        {
-            return JsonUtility.FromJson<DeathData>(json);
         }
     }
 }

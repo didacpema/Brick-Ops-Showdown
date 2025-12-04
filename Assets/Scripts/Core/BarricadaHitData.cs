@@ -14,7 +14,5 @@ namespace BrickOps.Core
             barricadaId = id;
             damage = dmg;
         }
-
-        public static BarricadaHitData FromJson(string json) => JsonUtility.FromJson<BarricadaHitData>(json);
     }
 }

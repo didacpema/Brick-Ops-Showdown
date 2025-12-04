@@ -6,7 +6,6 @@ namespace BrickOps.Editor
 {
     /// <summary>
     /// Herramienta de editor para configurar automáticamente el Player Prefab
-    /// Menú: Tools → Brick Ops → Setup Player Prefab
     /// </summary>
     public class PlayerPrefabSetup : EditorWindow
     {
@@ -97,7 +96,7 @@ namespace BrickOps.Editor
             if (player.GetComponent<PlayerController>() == null)
             {
                 player.AddComponent<PlayerController>();
-                Debug.Log("✓ Added PlayerController");
+                Debug.Log("Added PlayerController");
             }
 
             // 2. Rigidbody
@@ -105,7 +104,7 @@ namespace BrickOps.Editor
             if (rb == null)
             {
                 rb = player.AddComponent<Rigidbody>();
-                Debug.Log("✓ Added Rigidbody");
+                Debug.Log("Added Rigidbody");
             }
             rb.mass = 1f;
             rb.linearDamping = 0f;
@@ -118,7 +117,7 @@ namespace BrickOps.Editor
             if (collider == null)
             {
                 collider = player.AddComponent<CapsuleCollider>();
-                Debug.Log("✓ Added CapsuleCollider");
+                Debug.Log("Added CapsuleCollider");
             }
             collider.center = new Vector3(0, 1, 0);
             collider.radius = 0.5f;
@@ -128,7 +127,7 @@ namespace BrickOps.Editor
             // 4. Animator (si no existe, advertir)
             if (player.GetComponent<Animator>() == null)
             {
-                Debug.LogWarning("⚠ Animator not found - please add manually and assign controller");
+                Debug.LogWarning("Animator not found - please add manually and assign controller");
             }
 
             // 5. PlayerHealth
@@ -137,7 +136,7 @@ namespace BrickOps.Editor
                 PlayerHealth health = player.AddComponent<PlayerHealth>();
                 health.maxHealth = 100f;
                 health.respawnDelay = 3f;
-                Debug.Log("✓ Added PlayerHealth");
+                Debug.Log("Added PlayerHealth");
             }
 
             // 6. WeaponController
@@ -153,7 +152,7 @@ namespace BrickOps.Editor
                 weapon.walkingSpread = 0.04f;
                 weapon.walkingAimSpread = 0.015f;
 
-                Debug.Log("✓ Added WeaponController");
+                Debug.Log("Added WeaponController");
             }
 
             // 7. InputManager
@@ -168,14 +167,14 @@ namespace BrickOps.Editor
                 input.jumpCooldown = 1f;
                 input.groundCheckDistance = 1.1f;
                 input.shootCooldown = 0.4f;
-                Debug.Log("✓ Added InputManager");
+                Debug.Log("Added InputManager");
             }
 
             // 8. RemotePlayerAnimator
             if (player.GetComponent<RemotePlayerAnimator>() == null)
             {
                 player.AddComponent<RemotePlayerAnimator>();
-                Debug.Log("✓ Added RemotePlayerAnimator");
+                Debug.Log("Added RemotePlayerAnimator");
             }
 
             // 9. Setup Camera hijo
@@ -186,7 +185,7 @@ namespace BrickOps.Editor
                 camera.transform.SetParent(player.transform);
                 camera.transform.localPosition = new Vector3(0, 1.6f, 0);
                 cameraTransform = camera.transform;
-                Debug.Log("✓ Created Camera GameObject");
+                Debug.Log("Created Camera GameObject");
             }
 
             GameObject cameraObj = cameraTransform.gameObject;
@@ -199,14 +198,14 @@ namespace BrickOps.Editor
                 cam.fieldOfView = 60f;
                 cam.nearClipPlane = 0.3f;
                 cam.farClipPlane = 1000f;
-                Debug.Log("✓ Added Camera component");
+                Debug.Log("Added Camera component");
             }
 
             // AudioListener
             if (cameraObj.GetComponent<AudioListener>() == null)
             {
                 cameraObj.AddComponent<AudioListener>();
-                Debug.Log("✓ Added AudioListener");
+                Debug.Log("Added AudioListener");
             }
 
             // CameraController
@@ -233,7 +232,7 @@ namespace BrickOps.Editor
                 camController.shakeFrequency = 10f;
                 camController.jumpShakeDuration = 0.3f;
                 camController.shoulderSwitchSpeed = 10f;
-                Debug.Log("✓ Added CameraController");
+                Debug.Log("Added CameraController");
             }
 
             // 10. Conectar referencias en PlayerController
@@ -248,7 +247,7 @@ namespace BrickOps.Editor
                 so.FindProperty("remoteAnimator").objectReferenceValue = player.GetComponent<RemotePlayerAnimator>();
                 
                 so.ApplyModifiedProperties();
-                Debug.Log("✓ Connected references in PlayerController");
+                Debug.Log("Connected references in PlayerController");
             }
 
             Debug.Log("=== Player Prefab Setup Complete ===");

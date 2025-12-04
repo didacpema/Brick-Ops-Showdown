@@ -140,7 +140,7 @@ namespace BrickOps.UI
                 debugInfoText.gameObject.SetActive(showDebugInfo);
             }
 
-            Debug.Log("[UIManager] ✓ Initialized");
+            Debug.Log("[UIManager] Initialized");
         }
 
         void SetupEventListeners()

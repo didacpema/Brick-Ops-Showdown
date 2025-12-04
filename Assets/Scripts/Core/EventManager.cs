@@ -3,10 +3,6 @@ using UnityEngine;
 
 namespace BrickOps.Core
 {
-    /// <summary>
-    /// Sistema centralizado de eventos para desacoplar componentes
-    /// Evita dependencias circulares y facilita la escalabilidad
-    /// </summary>
     public class EventManager : MonoBehaviour
     {
         public static EventManager Instance { get; private set; }
@@ -74,9 +70,6 @@ namespace BrickOps.Core
         #endregion
 
         #region Utility Methods
-        /// <summary>
-        /// Limpia todos los suscriptores de eventos (útil al cambiar de escena)
-        /// </summary>
         public void ClearAllEvents()
         {
             OnPlayerSpawned = null;

@@ -32,7 +32,6 @@ public class WaitingRoomController : MonoBehaviour
     private UdpTransport transport;
     private bool isHost;
     private List<IPEndPoint> connectedClients = new List<IPEndPoint>();
-    private bool isReadyToPlay = false;
 
     void Start()
     {
@@ -86,7 +85,7 @@ public class WaitingRoomController : MonoBehaviour
         if (chatInput) chatInput.onSubmit.AddListener((s) => SendChatMessage());
         if (nameInput)
         {
-            // 1. Poner el nombre actual por defecto (ej: "Host")
+            // 1. Poner el nombre actual por defecto
             nameInput.text = NetworkManager.Instance.playerName;
 
             // 2. Detectar cuando escribes para actualizar el NetworkManager al vuelo
@@ -205,7 +204,6 @@ public class WaitingRoomController : MonoBehaviour
         {
             // Cliente: Manda al host (el host lo rebotará para que lo veamos)
             // Opcional: Mostrar localmente para feedback instantáneo
-            // AddChatMsg($"[{name}]: {txt}"); 
             if (transport != null)
                 transport.Send(fullMsg, transport.RemoteEndPoint);
         }
@@ -256,7 +254,7 @@ public class WaitingRoomController : MonoBehaviour
         {
             int id = int.Parse(msg.Split(':')[1]);
             NetworkManager.Instance.myPlayerId = id;
-            AddChatMsg($"<color=cyan>Assigned Player ID: {id}</color>");
+            AddChatMsg($"<color=blue>Assigned Player ID: {id}</color>");
         }
         else if (msg.StartsWith("CHAT:"))
         {

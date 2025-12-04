@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -127,7 +126,7 @@ public class ServerSceneController : MonoBehaviour
             }
             else if (msg.StartsWith("SHOOT_DATA:"))
             {
-                // ⭐ NUEVO: Retransmitir datos de disparo
+                // Retransmitir datos de disparo
                 Broadcast(msg, sender);
                 
                 // Log reducido para no saturar
@@ -138,7 +137,7 @@ public class ServerSceneController : MonoBehaviour
             }
             else if (msg.StartsWith("DEATH_DATA:"))
             {
-                // ⭐ NUEVO: Retransmitir datos de muerte
+                // Retransmitir datos de muerte
                 Broadcast(msg, null); // Enviar a TODOS (incluyendo el que murió)
                 Log($"Player death relayed from Player {players[sender].playerId}");
             }

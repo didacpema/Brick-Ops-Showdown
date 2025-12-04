@@ -11,7 +11,7 @@ namespace BrickOps.Networking
         public static NetworkManager Instance { get; private set; }
 
         [Header("Network Config")]
-        public string serverIP = "127.0.0.1";
+        public string serverIP = " ";
         public int port = 6000;
         public string playerName = "Player";
         public bool isServer = false;

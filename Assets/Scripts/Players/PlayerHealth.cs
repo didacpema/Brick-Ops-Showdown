@@ -2,6 +2,7 @@ using BrickOps.Core;
 using BrickOps.Players;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 
 /// <summary>
 /// Sistema de vida para los jugadores
@@ -42,6 +43,7 @@ public class PlayerHealth : MonoBehaviour
     private Renderer playerRenderer;
     private Material originalMaterial;
     private bool isDead = false;
+    private Coroutine _healingRoutine = null;
     #endregion
 
     #region Unity Lifecycle
@@ -124,13 +126,28 @@ public class PlayerHealth : MonoBehaviour
     public void Heal(float amount)
     {
         if (isDead) return;
-
-        currentHealth += amount;
-        currentHealth = Mathf.Min(maxHealth, currentHealth);
+        //heal player +25% de su vida por segundo hasta su vida maxima
+        if (_healingRoutine == null)
+        _healingRoutine = StartCoroutine(HealOverTime());
         
-        UpdateHealthBar();
-        NotifyHealthChanged();
-        Debug.Log($"[PlayerHealth] Player {playerId} curado. Vida: {currentHealth}/{maxHealth}");
+    }
+    IEnumerator HealOverTime()
+    {
+       while (!isDead && currentHealth < maxHealth)
+        {
+            // curar 10% de la vida actual por segundo        
+            float healAmount = currentHealth * 0.20f;
+
+            currentHealth = Mathf.Min(maxHealth, currentHealth + healAmount);
+
+            UpdateHealthBar();
+            NotifyHealthChanged();
+            Debug.Log($"[PlayerHealth] Player {playerId} curado. Vida: {currentHealth}/{maxHealth}");
+
+            yield return new WaitForSeconds(0.5f);
+        }
+
+        _healingRoutine = null;
     }
 
     /// <summary>
