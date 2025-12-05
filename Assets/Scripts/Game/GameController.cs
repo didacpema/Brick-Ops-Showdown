@@ -451,6 +451,11 @@ public class GameController : MonoBehaviour
                 }
                 break;
 
+            case NetworkProtocol.OBJECT_TRANSFORM:
+                BroadcastToClients(message, sender);
+                ProcessObjectTransform(data);
+                break;
+
             default:
                 // Chat u otros mensajes
                 BroadcastToClients(message, sender);
@@ -799,6 +804,10 @@ public class GameController : MonoBehaviour
             case NetworkProtocol.HEALTH_PACK_PICKUP:
                 ProcessHealthPackPickup(data);
                 break;
+
+            case NetworkProtocol.OBJECT_TRANSFORM:
+                ProcessObjectTransform(data);
+                break;
             
             default:
                 Debug.LogWarning($"[GameController] Unknown message type: {messageType}");
@@ -912,6 +921,28 @@ public class GameController : MonoBehaviour
 
         PlayerState state = new PlayerState(respawnData.playerId, position, rotation);
         PlayerManager.Instance?.UpdatePlayerState(respawnData.playerId, state);
+    }
+
+    void ProcessObjectTransform(string jsonData)
+    {
+        ObjectTransformData transformData = NetworkProtocol.DeserializeFromJson<ObjectTransformData>(jsonData);
+        
+        if (transformData == null)
+            return;
+
+        // Buscar todos los objetos con RotationAnimation y aplicar la transformación
+        RotationAnimation[] rotationObjects = FindObjectsOfType<RotationAnimation>();
+        foreach (var rotationObj in rotationObjects)
+        {
+            rotationObj.ApplyTransform(transformData);
+        }
+
+        // Buscar todos los objetos con Elevator y aplicar la transformación
+        Elevator[] elevators = FindObjectsOfType<Elevator>();
+        foreach (var elevator in elevators)
+        {
+            elevator.ApplyTransform(transformData);
+        }
     }
 
     void HandleServerClosed()

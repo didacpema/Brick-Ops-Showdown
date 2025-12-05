@@ -23,6 +23,7 @@ namespace BrickOps.Networking
         public const string BARRICADA_HIT = "BARRICADA_HIT";
         public const string PLAYER_NAME = "PLAYER_NAME";
         public const string HEALTH_PACK_PICKUP = "HEALTH_PACK_PICKUP";
+        public const string OBJECT_TRANSFORM = "OBJECT_TRANSFORM";
         #endregion
 
         #region Message Building
