@@ -1415,7 +1415,15 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 1288275684665754793, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
+      propertyPath: objectId
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 1288275684665754793, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
       propertyPath: moveDistance
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2129707144788259738, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
+      propertyPath: objectId
       value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 2129707144788259738, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
@@ -1423,8 +1431,16 @@ PrefabInstance:
       value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 6106062572598542387, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
+      propertyPath: objectId
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 6106062572598542387, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
       propertyPath: moveDistance
       value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 7365930532306754892, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
+      propertyPath: objectId
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 7365930532306754892, guid: 955a47ded4c88e647a6172a970c29fed, type: 3}
       propertyPath: moveDistance
