@@ -1,14 +1,45 @@
--Què s’ha fet i qui ho ha fet? 
+**-Què s’ha fet i qui ho ha fet?**
 
-Game logic: Dídac i Pau
+ 	Adrià Roger: Serialització general + correcció errors.
 
-Serialization: Izan i Adrià
+ 	Dídac Pérez: Animacions + serialització animacions.
+
+ 	Izan Sánchez: Estadístiques UI, Mapa + Serialitzar animacions del mapa.
+
+ 	Pau Blanco: Barricada destructible i botiquin + serialitzar botiquin.
 
 
--Known issues
 
-...
+**-Known issues**
 
--Next steps
+ 	Animacions mapa van amb una mica de LAG.
 
-Serialitzar rotació dels players, fer que el player pugui disparar y serialitzar el transform de les bales.
+ 	Moviment lateral en "crouch" no funciona bé.
+
+ 	Sobreposicó de canvas al morir (normal al respawnejar).
+
+ 	Tornar al menú i tornar a crear partida fa que la UI no vagi bé.
+
+
+
+**-Next steps**
+
+Serialitzar rotació tors.
+
+
+ 	Fer "slide".
+
+ 	Fer "Dash".
+
+ 	Dispar automàtic.
+
+ 	Vida que es regeneri.
+
+ 	Afegir "Spawn Points" aleatoris.
+
+ 	Condició Win-Lose.
+
+ 	Millorar serialització (Binari?).
+
+
+
