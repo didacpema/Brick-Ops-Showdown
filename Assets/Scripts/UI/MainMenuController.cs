@@ -16,19 +16,15 @@ public class MainMenuController : MonoBehaviour
 
     void OnCreateServer()
     {
-        // 1. Configurar NetworkManager como HOST
         SetupNetworkManager(true);
 
-        // 2. Cargar escena ESPECÍFICA del Host
         SceneManager.LoadScene("ServerWaitingRoom");
     }
 
     void OnJoinClient()
     {
-        // 1. Configurar NetworkManager como CLIENTE
         SetupNetworkManager(false);
         
-        // 2. Cargar escena de Clientes
         SceneManager.LoadScene("WaitingRoom");
     }
 
@@ -45,7 +41,6 @@ public class MainMenuController : MonoBehaviour
         NetworkManager.Instance.playerName = serverMode ? "Host" : "Player";
         NetworkManager.Instance.isGameStarted = false;
         
-        // Limpiar socket viejo si hubiera
         if (NetworkManager.Instance.udpSocket != null)
         {
             NetworkManager.Instance.udpSocket.Close();

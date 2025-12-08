@@ -9,9 +9,9 @@ namespace BrickOps.Core
     [Serializable]
     public class HealthPackData
     {
-        public int healthPackId;      // ID único del health pack
-        public bool isActive;          // Si está disponible para recoger
-        public int collectorId;        // ID del jugador que lo recogió
+        public int healthPackId;     
+        public bool isActive;        
+        public int collectorId;       
         
         public HealthPackData(int id, bool active, int collector = -1)
         {

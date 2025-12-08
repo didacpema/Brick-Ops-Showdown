@@ -90,7 +90,6 @@ namespace BrickOps.Networking
             }
             catch (SocketException)
             {
-                // Silenciar errores no críticos (ej: non-blocking)
             }
         }
 
@@ -112,7 +111,6 @@ namespace BrickOps.Networking
                 }
                 catch (SocketException)
                 {
-                    // Ignorar errores individuales
                 }
             }
         }

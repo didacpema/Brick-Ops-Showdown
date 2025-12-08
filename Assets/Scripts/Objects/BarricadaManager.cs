@@ -50,14 +50,12 @@ public class BarricadaManager : MonoBehaviour
 
         string payload = BarricadaStatePrefix + JsonUtility.ToJson(state);
 
-        // Intentar enviar usando ServerSceneController O GameController
         if (Server != null)
         {
             Server.BroadcastToClients(payload);
         }
         else if (GameController.Instance != null && NetworkManager.Instance.isServer)
         {
-            // Si somos Host desde el juego, usamos GameController
             GameController.Instance.BroadcastToClients(payload);
         }
     }
@@ -78,7 +76,6 @@ public class BarricadaManager : MonoBehaviour
         }
     }
 
-    // Método para procesar mensajes de estado desde el cliente UDP
     public void ProcessBarricadaStateMessage(string message)
     {
         if (string.IsNullOrEmpty(message) || !message.StartsWith(BarricadaStatePrefix)) return;

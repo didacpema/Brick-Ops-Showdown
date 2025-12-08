@@ -11,22 +11,22 @@ using BrickOps.Networking;
 public class WaitingRoomController : MonoBehaviour
 {
     [Header("Panels (Asignar en Inspector)")]
-    public GameObject connectionPanel; // Solo visible para Cliente
-    public GameObject chatPanel;       // Visible para ambos al conectar
-    public GameObject hostPanel;       // Solo visible para Host (contiene botón Start)
+    public GameObject connectionPanel; 
+    public GameObject chatPanel;      
+    public GameObject hostPanel;       
 
     [Header("UI Elements")]
     public TMP_InputField nameInput;
     public TMP_InputField ipInput;
     public TMP_InputField chatInput;
     public TMP_Text chatText;
-    public TMP_Text playerCountText; // Opcional: Para mostrar "Players: X"
+    public TMP_Text playerCountText; 
     
     [Header("Buttons")]
-    public Button connectButton;     // Cliente
-    public Button sendButton;        // Ambos
-    public Button startGameButton;   // Host
-    public Button backButton;        // Ambos
+    public Button connectButton;     
+    public Button sendButton;        
+    public Button startGameButton;   
+    public Button backButton;        
 
     // Estado
     private UdpTransport transport;
@@ -35,7 +35,6 @@ public class WaitingRoomController : MonoBehaviour
 
     void Start()
     {
-        // Detectar modo según lo configurado en MainMenu
         isHost = NetworkManager.Instance.isServer;
 
         SetupUI();
@@ -47,19 +46,16 @@ public class WaitingRoomController : MonoBehaviour
         }
         else
         {
-            // El cliente espera a que el usuario pulse "Conectar"
             Debug.Log("[WaitingRoom] Client Mode: Waiting for user input...");
         }
     }
 
     void SetupUI()
     {
-        // Limpiar chat
         if (chatText != null) chatText.text = "";
 
         if (isHost)
         {
-            // Configuración visual HOST
             if (connectionPanel) connectionPanel.SetActive(false);
             if (chatPanel) chatPanel.SetActive(true);
             if (hostPanel) hostPanel.SetActive(true);
@@ -69,7 +65,6 @@ public class WaitingRoomController : MonoBehaviour
         }
         else
         {
-            // Configuración visual CLIENTE
             if (connectionPanel) connectionPanel.SetActive(true);
             if (chatPanel) chatPanel.SetActive(false);
             if (hostPanel) hostPanel.SetActive(false);
@@ -85,28 +80,22 @@ public class WaitingRoomController : MonoBehaviour
         if (chatInput) chatInput.onSubmit.AddListener((s) => SendChatMessage());
         if (nameInput)
         {
-            // 1. Poner el nombre actual por defecto
             nameInput.text = NetworkManager.Instance.playerName;
 
-            // 2. Detectar cuando escribes para actualizar el NetworkManager al vuelo
             nameInput.onValueChanged.AddListener((newName) => 
             {
                 NetworkManager.Instance.playerName = newName;
             });
         }
     }
-
-    // ================== HOST LOGIC ==================
     void StartHostLogic()
     {
         transport = new UdpTransport();
         
-        // Intentar abrir puerto 6000
         if (transport.InitializeServer(6000))
         {
-            // Guardar socket en NetworkManager para que GameController lo use luego
             NetworkManager.Instance.udpSocket = transport.Socket;
-            NetworkManager.Instance.serverEndPoint = null; // Soy servidor
+            NetworkManager.Instance.serverEndPoint = null;
             
             AddChatMsg("<color=green>Server started on Port 6000.</color>");
             AddChatMsg("Waiting for players...");
@@ -124,14 +113,10 @@ public class WaitingRoomController : MonoBehaviour
         AddChatMsg("<color=yellow>Starting Game...</color>");
         NetworkManager.Instance.isGameStarted = true;
 
-        // Avisar a todos los clientes
         HostBroadcast("GAME_START");
 
-        // Cargar juego (usará el socket guardado en NetworkManager)
         SceneManager.LoadScene("Game");
     }
-
-    // ================== CLIENT LOGIC ==================
     void ClientConnect()
     {
         string ipStr = ipInput.text.Trim();
@@ -140,11 +125,9 @@ public class WaitingRoomController : MonoBehaviour
         if (string.IsNullOrEmpty(ipStr)) ipStr = "127.0.0.1";
         if (string.IsNullOrEmpty(name)) name = "Client";
 
-        // Guardar nombre
         NetworkManager.Instance.playerName = name;
         NetworkManager.Instance.serverIP = ipStr;
 
-        // Iniciar Socket
         transport = new UdpTransport();
         if (!IPAddress.TryParse(ipStr, out IPAddress ip))
         {
@@ -157,23 +140,18 @@ public class WaitingRoomController : MonoBehaviour
             NetworkManager.Instance.udpSocket = transport.Socket;
             NetworkManager.Instance.serverEndPoint = transport.RemoteEndPoint;
 
-            // UI Feedback
             connectionPanel.SetActive(false);
             chatPanel.SetActive(true);
             
-            // Enviar saludo al servidor para registrarnos
             transport.Send($"JOIN:{name}", transport.RemoteEndPoint);
             
             AddChatMsg($"<color=green>Connected to {ipStr} as {name}</color>");
         }
     }
-
-    // ================== COMMON LOGIC ==================
     void Update()
     {
         if (transport != null && transport.Socket != null)
         {
-            // Recibir mensajes (Non-blocking loop)
             while (transport.TryReceive(out string msg, out EndPoint sender))
             {
                 if (string.IsNullOrEmpty(msg)) continue;
@@ -196,14 +174,11 @@ public class WaitingRoomController : MonoBehaviour
 
         if (isHost)
         {
-            // Host: Muestra local y retransmite a todos
             AddChatMsg($"[{name}]: {txt}");
             HostBroadcast(fullMsg);
         }
         else
         {
-            // Cliente: Manda al host (el host lo rebotará para que lo veamos)
-            // Opcional: Mostrar localmente para feedback instantáneo
             if (transport != null)
                 transport.Send(fullMsg, transport.RemoteEndPoint);
         }
@@ -212,19 +187,14 @@ public class WaitingRoomController : MonoBehaviour
         chatInput.ActivateInputField();
     }
 
-    // --- Message Handlers ---
-
     void HandleMessageAsHost(string msg, IPEndPoint sender)
     {
-        // Registrar cliente si es nuevo
         if (!connectedClients.Contains(sender))
         {
             connectedClients.Add(sender);
             
-            // Asignar ID (Host=1, Clientes=2+)
             int newId = connectedClients.Count + 1;
             
-            // Enviar ID de vuelta
             transport.Send($"PLAYER_ID:{newId}", sender);
             
             string joinMsg = $"Player {newId} joined!";
@@ -233,18 +203,15 @@ public class WaitingRoomController : MonoBehaviour
             UpdatePlayerCount();
         }
 
-        // Procesar contenido
         if (msg.StartsWith("CHAT:"))
         {
-            string content = msg.Substring(5); // Quitar "CHAT:"
-            AddChatMsg(content); // Mostrar en Host
-            HostBroadcast(msg);  // Reenviar a TODOS los clientes
+            string content = msg.Substring(5); 
+            AddChatMsg(content); 
+            HostBroadcast(msg);  
         }
         else if (msg.StartsWith("JOIN:"))
         {
-            // Ya registrado arriba, solo log visual
             string clientName = msg.Substring(5);
-            // Podrías guardar el nombre asociado al ID aquí
         }
     }
 
@@ -267,8 +234,6 @@ public class WaitingRoomController : MonoBehaviour
         }
     }
 
-    // --- Helpers ---
-
     void HostBroadcast(string msg)
     {
         foreach (var client in connectedClients)
@@ -286,7 +251,7 @@ public class WaitingRoomController : MonoBehaviour
     void UpdatePlayerCount()
     {
         if(playerCountText != null)
-            playerCountText.text = $"Players: {connectedClients.Count + 1}"; // +1 Host
+            playerCountText.text = $"Players: {connectedClients.Count + 1}"; 
     }
 
     void GoBack()

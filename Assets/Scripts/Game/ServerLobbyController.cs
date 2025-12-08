@@ -92,7 +92,6 @@ public class ServerSceneController : MonoBehaviour
 
     void ProcessMessage(IPEndPoint sender, string msg)
     {
-        // Nuevo jugador conectándose
         if (!players.ContainsKey(sender))
         {
             int playerId = clients.Count + 1;
@@ -118,18 +117,14 @@ public class ServerSceneController : MonoBehaviour
         }
         else
         {
-            // Mensajes de jugadores ya conectados
             if (msg.StartsWith("PLAYER_DATA:"))
             {
-                // Retransmitir posición del jugador
                 Broadcast(msg, sender);
             }
             else if (msg.StartsWith("SHOOT_DATA:"))
             {
-                // Retransmitir datos de disparo
                 Broadcast(msg, sender);
                 
-                // Log reducido para no saturar
                 if (Time.frameCount % 60 == 0)
                 {
                     Log($"Relaying shoot data from Player {players[sender].playerId}");
@@ -137,8 +132,7 @@ public class ServerSceneController : MonoBehaviour
             }
             else if (msg.StartsWith("DEATH_DATA:"))
             {
-                // Retransmitir datos de muerte
-                Broadcast(msg, null); // Enviar a TODOS (incluyendo el que murió)
+                Broadcast(msg, null); 
                 Log($"Player death relayed from Player {players[sender].playerId}");
             }
             else if (msg == "START_GAME")
@@ -150,7 +144,6 @@ public class ServerSceneController : MonoBehaviour
             }
             else
             {
-                // Chat genérico
                 string formatted = $"[{players[sender].name}]: {msg}";
                 Broadcast(formatted, sender);
                 Log($"Chat - {formatted}");
