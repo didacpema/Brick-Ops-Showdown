@@ -8,8 +8,8 @@ public class Elevator : MonoBehaviour
     [SerializeField] private float moveDistance = 5.5f;
     [SerializeField] private float moveSpeed = 2f;
     [SerializeField] private float waitTime = 1.5f;
-    [SerializeField] private int objectId = 0; // ID único para este elevador
-    [SerializeField] private float sendRate = 10f; // Enviar 10 veces por segundo
+    [SerializeField] private int objectId = 0; 
+    [SerializeField] private float sendRate = 10f; 
 
     private Vector3 startPosition;
     private Vector3 targetPosition;
@@ -19,7 +19,6 @@ public class Elevator : MonoBehaviour
 
     void Start()
     {
-        // Verificar si somos el servidor/host
         if (NetworkManager.Instance != null)
         {
             isServer = NetworkManager.Instance.isServer;
@@ -28,7 +27,6 @@ public class Elevator : MonoBehaviour
         startPosition = transform.position;
         targetPosition = startPosition + Vector3.up * moveDistance;
 
-        // Solo el servidor ejecuta el ciclo del elevador
         if (isServer || NetworkManager.Instance == null)
         {
             StartCoroutine(ElevatorCycle());
@@ -37,7 +35,6 @@ public class Elevator : MonoBehaviour
 
     void Update()
     {
-        // Enviar actualizaciones periódicas si somos servidor
         if (isServer && Time.time >= nextSendTime)
         {
             SendTransformUpdate();
@@ -49,7 +46,6 @@ public class Elevator : MonoBehaviour
     {
         while (true)
         {
-            // Mover el elevador
             Vector3 destination = movingUp ? targetPosition : startPosition;
             
             while (Vector3.Distance(transform.position, destination) > 0.01f)
@@ -60,10 +56,8 @@ public class Elevator : MonoBehaviour
 
             transform.position = destination;
 
-            // Esperar 1.5 segundos
             yield return new WaitForSeconds(waitTime);
 
-            // Cambiar dirección
             movingUp = !movingUp;
         }
     }
@@ -82,7 +76,6 @@ public class Elevator : MonoBehaviour
         GameController.Instance.BroadcastToClients(message, null);
     }
 
-    // Método para aplicar transformación recibida de la red
     public void ApplyTransform(ObjectTransformData data)
     {
         if (data.objectId == objectId)

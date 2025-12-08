@@ -5,7 +5,6 @@ namespace BrickOps.UI
 {
     /// <summary>
     /// Crosshair dinámico que se expande/contrae según el spread del arma
-    /// Similar al sistema de Valorant
     /// </summary>
     public class DynamicCrosshair : MonoBehaviour
     {
@@ -98,7 +97,6 @@ namespace BrickOps.UI
             parentCanvas = GetComponentInParent<Canvas>();
         }        void Update()
         {
-            // Intentar auto-asignar WeaponController si aún no está asignado
             if (weaponController == null)
             {
                 weaponController = FindAnyObjectByType<WeaponController>();
@@ -110,19 +108,16 @@ namespace BrickOps.UI
                 return;
             }
             
-            // Intentar auto-asignar InputManager si aún no está asignado
             if (inputManager == null)
             {
                 inputManager = FindAnyObjectByType<InputManager>();
             }
             
-            // Auto-asignar cámara si falta
             if (playerCamera == null && weaponController != null)
             {
                 playerCamera = weaponController.playerCamera;
             }
             
-            // Controlar visibilidad de las líneas según si está apuntando
             bool isAiming = inputManager != null && inputManager.IsAiming();
             SetLinesVisible(isAiming);
             
@@ -135,13 +130,11 @@ namespace BrickOps.UI
         #region Initialization
         void InitializeCrosshair()
         {
-            // Si no hay líneas creadas, crearlas automáticamente
             if (topLine == null || bottomLine == null || leftLine == null || rightLine == null)
             {
                 CreateCrosshairLines();
             }
             
-            // Obtener componentes Image
             lineImages = new Image[4];
             if (topLine != null) lineImages[0] = topLine.GetComponent<Image>();
             if (bottomLine != null) lineImages[1] = bottomLine.GetComponent<Image>();
@@ -152,29 +145,23 @@ namespace BrickOps.UI
             {
                 centerDotImage = centerDot.GetComponent<Image>();
             }
-              // Aplicar estilo visual
             ApplyVisualSettings();
             
             currentGap = idleGap;
         }void CreateCrosshairLines()
         {
-            // Crear línea superior
             topLine = CreateLine("Top", new Vector2(lineThickness, lineLength));
             topLine.anchoredPosition = new Vector2(0, idleGap + lineLength / 2);
             
-            // Crear línea inferior
             bottomLine = CreateLine("Bottom", new Vector2(lineThickness, lineLength));
             bottomLine.anchoredPosition = new Vector2(0, -(idleGap + lineLength / 2));
             
-            // Crear línea izquierda
             leftLine = CreateLine("Left", new Vector2(lineLength, lineThickness));
             leftLine.anchoredPosition = new Vector2(-(idleGap + lineLength / 2), 0);
             
-            // Crear línea derecha
             rightLine = CreateLine("Right", new Vector2(lineLength, lineThickness));
             rightLine.anchoredPosition = new Vector2(idleGap + lineLength / 2, 0);
             
-            // Crear punto central (opcional)
             if (centerDot == null)
             {
                 GameObject dotObj = new GameObject("CenterDot");
@@ -212,7 +199,6 @@ namespace BrickOps.UI
             Color finalColor = crosshairColor;
             finalColor.a = crosshairOpacity;
             
-            // Aplicar a las líneas
             foreach (Image img in lineImages)
             {
                 if (img != null)
@@ -221,69 +207,49 @@ namespace BrickOps.UI
                 }
             }
             
-            // Aplicar al punto central
             if (centerDotImage != null)
             {
                 centerDotImage.color = finalColor;
             }
-              // Actualizar tamaños
-            //if (topLine != null) topLine.sizeDelta = new Vector2(lineThickness, lineLength);
-            //if (bottomLine != null) bottomLine.sizeDelta = new Vector2(lineThickness, lineLength);
-            //if (leftLine != null) leftLine.sizeDelta = new Vector2(lineLength, lineThickness);
-            //if (rightLine != null) rightLine.sizeDelta = new Vector2(lineLength, lineThickness);
         }
         #endregion
 
         #region Crosshair Update
         void UpdateCrosshairSpread()
         {
-            // Determinar el gap objetivo según el estado del jugador
             targetGap = GetTargetGapForCurrentState();
             
-            // Suavizar la transición
             currentGap = Mathf.Lerp(currentGap, targetGap, Time.deltaTime * smoothSpeed);
             
-            // Actualizar posiciones de las líneas (incluyendo expansión por disparo)
             UpdateLinePositions();
         }
         
-        /// <summary>
-        /// Actualiza la expansión temporal del crosshair al disparar
-        /// </summary>
         void UpdateShootExpansion()
         {
             if (weaponController == null) return;
             
-            // Detectar nuevo disparo comparando el shootCount
             int currentShootCount = GetCurrentShootCount();
             if (lastShootCount != -1 && currentShootCount > lastShootCount)
             {
-                // Nuevo disparo detectado - activar expansión
                 shootExpansionTimer = shootExpansionDuration;
                 currentShootExpansion = shootExpansion;
             }
             lastShootCount = currentShootCount;
             
-            // Decrementar timer
             if (shootExpansionTimer > 0)
             {
                 shootExpansionTimer -= Time.deltaTime;
             }
             
-            // Recuperar expansión suavemente
             float targetExpansion = shootExpansionTimer > 0 ? shootExpansion : 0f;
             currentShootExpansion = Mathf.Lerp(currentShootExpansion, targetExpansion, Time.deltaTime * shootRecoverySpeed);
         }
         
-        /// <summary>
-        /// Obtiene el contador de disparos actual del arma
-        /// </summary>
         int GetCurrentShootCount()
         {
-            // Necesitamos acceder al InputManager para obtener el shootCount
             if (inputManager != null)
             {
-                var state = inputManager.GetCurrentPlayerState(0); // ID 0 es temporal
+                var state = inputManager.GetCurrentPlayerState(0);
                 if (state != null)
                 {
                     return state.shootCount;
@@ -292,51 +258,35 @@ namespace BrickOps.UI
             return 0;
         }        float GetTargetGapForCurrentState()
         {
-            // Prioridad 1: Si está saltando (no está en el suelo)
             if (inputManager != null && !inputManager.IsGrounded())
             {
                 return jumpingGap;
             }
             
-            // Obtener el spread actual para determinar el estado
             float currentSpread = weaponController.GetCurrentSpread();
-            
-            // Determinar estado basándose en el spread del arma
-            // jumpingSpread = 0.1
-            // runningSpread = 0.08
-            // walkingSpread = 0.04
-            // walkingAimSpread = 0.015
-            // standingSpread = 0.02
-            // standingAimSpread = 0.005
             
             if (currentSpread >= 0.1f)
             {
-                // Saltando (jumpingSpread = 0.1)
                 return jumpingGap;
             }
             else if (currentSpread >= 0.08f)
             {
-                // Corriendo (runningSpread = 0.08)
                 return runningGap;
             }
             else if (currentSpread >= 0.04f)
             {
-                // Andando (walkingSpread = 0.04)
                 return walkingGap;
             }
             else if (currentSpread >= 0.02f)
             {
-                // Quieto (standingSpread = 0.02)
                 return idleGap;
             }
             else if (currentSpread >= 0.015f)
             {
-                // Andando + Apuntando (walkingAimSpread = 0.015)
                 return aimingGap + (walkingGap - aimingGap) * 0.5f;
             }
             else
             {
-                // Quieto + Apuntando (standingAimSpread = 0.005)
                 return aimingGap;
             }
         }
@@ -345,13 +295,10 @@ namespace BrickOps.UI
         {
             if (weaponController == null || playerCamera == null) return;
             
-            // Obtener el punto de impacto REAL de la bala (considerando obstáculos desde el muzzle)
             Vector3 actualImpactPoint = weaponController.GetActualBulletImpactPoint();
             
-            // Proyectar ese punto a coordenadas de pantalla
             Vector3 screenPoint = playerCamera.WorldToScreenPoint(actualImpactPoint);
             
-            // Convertir a coordenadas del canvas
             Vector2 targetOffset = Vector2.zero;
             if (parentCanvas != null)
             {
@@ -366,10 +313,8 @@ namespace BrickOps.UI
                 targetOffset = localPoint;
             }
             
-            // Aplicar gap base + expansión por disparo
             float finalGap = currentGap + currentShootExpansion;
             
-            // Las barras se adaptan al obstáculo (siguen el target)
             if (topLine != null)
             {
                 topLine.anchoredPosition = targetOffset + new Vector2(0, finalGap + lineLength / 2);
@@ -389,48 +334,30 @@ namespace BrickOps.UI
                 rightLine.anchoredPosition = targetOffset + new Vector2(finalGap + lineLength / 2, 0);
             }
         }
-        
-        /// <summary>
-        /// Actualiza la posición del dot central:
-        /// - Permanece fijo en el centro de la pantalla
-        /// </summary>
         void UpdateCenterDotPosition()
         {
             if (centerDot == null) return;
             
-            // El dot permanece fijo en el centro
             centerDot.anchoredPosition = Vector2.zero;
         }
         #endregion
 
         #region Public API
-        /// <summary>
-        /// Asigna el WeaponController manualmente
-        /// </summary>
         public void SetWeaponController(WeaponController controller)
         {
             weaponController = controller;
         }
 
-        /// <summary>
-        /// Actualiza la configuración visual del crosshair en runtime
-        /// </summary>
         public void UpdateVisuals()
         {
             ApplyVisualSettings();
         }
 
-        /// <summary>
-        /// Muestra u oculta el crosshair
-        /// </summary>
         public void SetVisible(bool visible)
         {
             gameObject.SetActive(visible);
         }
         
-        /// <summary>
-        /// Muestra u oculta solo las líneas del crosshair (no el dot central)
-        /// </summary>
         void SetLinesVisible(bool visible)
         {
             if (topLine != null) topLine.gameObject.SetActive(visible);
@@ -443,13 +370,11 @@ namespace BrickOps.UI
         #region Editor
         void OnValidate()
         {
-            // Aplicar cambios en tiempo de edición
             if (Application.isPlaying && lineImages != null)
             {
                 ApplyVisualSettings();
             }
             
-            // Asegurar que el dot empiece en el centro en el editor
             if (!Application.isPlaying && centerDot != null)
             {
                 centerDot.anchoredPosition = Vector2.zero;

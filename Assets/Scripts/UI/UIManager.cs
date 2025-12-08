@@ -8,7 +8,6 @@ namespace BrickOps.UI
 {
     /// <summary>
     /// Gestiona toda la UI del juego
-    /// Separado del GameController para mejor organización
     /// </summary>
     public class UIManager : MonoBehaviour
     {
@@ -40,9 +39,8 @@ namespace BrickOps.UI
         private float lastFPSUpdate = 0f;
         private int frameCount = 0;
         private float fps = 0f;
-        // ===== Network HUD throttling =====
         private float lastNetUpdateTime = 0f;
-        private float netUpdateInterval = 1f; // actualizar cada 1s
+        private float netUpdateInterval = 1f; 
         private string cachedNetLine = "NET: N/A";
         private int smoothedPing = -1;
         #endregion
@@ -96,7 +94,6 @@ namespace BrickOps.UI
                 UpdateDebugInfo();
             }
 
-            // Scoreboard toggle
             if (Input.GetKeyDown(KeyCode.Tab))
             {
                 ToggleScoreboard(true);
@@ -178,11 +175,9 @@ namespace BrickOps.UI
             Vector3 pos = localPlayer.transform.position;
             string status = otherPlayers > 0 ? $"CONNECTED ({otherPlayers} other)" : "SOLO";
 
-            // Actualizar stats de red solo cada intervalo
             if (GameController.Instance != null && Time.time - lastNetUpdateTime >= netUpdateInterval)
             {
                 GameController.Instance.GetNetworkStats(out int pingMs, out int sent, out int recv, out float pps);
-                // Suavizado de ping
                 if (pingMs >= 0)
                 {
                     if (smoothedPing < 0)
@@ -214,7 +209,6 @@ namespace BrickOps.UI
             float percentage = (currentHealth / maxHealth) * 100f;
             healthText.text = $"HP: {percentage:F0}%";
 
-            // Color según vida
             if (percentage > 60f)
                 healthText.color = Color.green;
             else if (percentage > 30f)
@@ -229,7 +223,6 @@ namespace BrickOps.UI
         {
             killFeedEntries.Add(new KillFeedEntry(message));
             
-            // Limitar número de entradas
             while (killFeedEntries.Count > maxKillFeedLines)
             {
                 killFeedEntries.RemoveAt(0);
@@ -240,10 +233,8 @@ namespace BrickOps.UI
 
         void UpdateKillFeed()
         {
-            // Eliminar mensajes expirados
             killFeedEntries.RemoveAll(entry => entry.IsExpired(killFeedDuration));
 
-            // Actualizar display si cambió
             if (killFeedEntries.Count == 0 && !string.IsNullOrEmpty(killFeedText?.text))
             {
                 UpdateKillFeedDisplay();
@@ -292,7 +283,6 @@ namespace BrickOps.UI
 
             string content = "=== SCOREBOARD ===\n\n";
             
-            // Jugador local
             int localId = PlayerManager.Instance.LocalPlayerId;
             GameObject localPlayer = PlayerManager.Instance.LocalPlayer;
             
@@ -304,7 +294,6 @@ namespace BrickOps.UI
                 content += $"[YOU] Player {localId} - HP: {hp:F0}%\n";
             }
 
-            // Jugadores remotos
             foreach (var kvp in PlayerManager.Instance.RemotePlayers)
             {
                 int playerId = kvp.Key;
@@ -343,7 +332,6 @@ namespace BrickOps.UI
 
                 fpsText.text = $"FPS: {fps:F0}";
 
-                // Color según rendimiento
                 if (fps >= 60f)
                     fpsText.color = Color.green;
                 else if (fps >= 30f)
@@ -376,18 +364,11 @@ namespace BrickOps.UI
         #endregion
 
         #region Public API
-        /// <summary>
-        /// Muestra un mensaje temporal en pantalla
-        /// </summary>
         public void ShowNotification(string message, float duration = 3f)
         {
-            // Implementar sistema de notificaciones temporales
             Debug.Log($"[Notification] {message}");
         }
 
-        /// <summary>
-        /// Actualiza el contador de munición
-        /// </summary>
         public void UpdateAmmo(int current, int max)
         {
             if (ammoText != null)

@@ -7,13 +7,12 @@ namespace BrickOps.Players
     /// </summary>
     public enum HitboxType
     {
-        Body,    // Pecho/Cuerpo
-        Head     // Cabeza
+        Body,    
+        Head    
     }
 
     /// <summary>
-    /// Componente que se añade a los colliders específicos (cabeza, pecho)
-    /// para identificar qué parte del jugador fue impactada
+    /// Componente que se añade a los colliders específicos
     /// </summary>
     public class HitboxController : MonoBehaviour
     {
@@ -26,7 +25,6 @@ namespace BrickOps.Players
 
         void Awake()
         {
-            // Buscar el PlayerHealth en el padre
             if (playerHealth == null)
             {
                 playerHealth = GetComponentInParent<PlayerHealth>();
@@ -37,18 +35,10 @@ namespace BrickOps.Players
                 }
             }
         }
-
-        /// <summary>
-        /// Obtiene el PlayerHealth asociado a esta hitbox
-        /// </summary>
         public PlayerHealth GetPlayerHealth()
         {
             return playerHealth;
         }
-
-        /// <summary>
-        /// Obtiene el tipo de hitbox
-        /// </summary>
         public HitboxType GetHitboxType()
         {
             return hitboxType;

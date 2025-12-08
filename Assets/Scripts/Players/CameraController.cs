@@ -142,7 +142,6 @@ namespace BrickOps.Players
                 Debug.LogError("[CameraController] PlayerRoot not assigned!");
             }
             
-            // Inicializar offsets de hombro
             currentShoulderOffset = rightShoulderCamera != null ? rightShoulderCamera.localPosition : rightShoulderOffset;
             targetShoulderOffset = currentShoulderOffset;
         }
@@ -157,9 +156,6 @@ namespace BrickOps.Players
         #endregion
 
         #region Camera Logic
-        /// <summary>
-        /// Maneja el cambio de hombro al presionar Q
-        /// </summary>
         void HandleShoulderSwitch()
         {
             if (Input.GetKeyDown(KeyCode.F))
@@ -173,72 +169,51 @@ namespace BrickOps.Players
             currentShoulderOffset = Vector3.Lerp(currentShoulderOffset, targetShoulderOffset, Time.deltaTime * shoulderSwitchSpeed);
         }
 
-        /// <summary>
-        /// Maneja SOLO la rotación vertical (InputManager controla la horizontal)
-        /// </summary>
         void HandleCameraRotation()
         {
-            // La sensibilidad se aplica automáticamente desde Input.GetAxis con mouseSensitivity
             float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
             
-            // Rotación vertical con clamp (+ para subir, - para bajar)
             verticalRotation += mouseY;
             verticalRotation = Mathf.Clamp(verticalRotation, minVerticalAngle, maxVerticalAngle);
         }
-
-        /// <summary>
-        /// Actualiza posición de la cámara en el hombro y la hace mirar hacia el punto focal
-        /// </summary>
         void UpdateCameraPositionAndRotation()
         {
             if (playerRoot == null) return;
             
-            // 1. Calcular punto focal (target) - donde debe mirar la cámara
             Vector3 forwardDirection = playerRoot.forward;
             Vector3 upOffset = Vector3.up * (targetHeight + Mathf.Tan(verticalRotation * Mathf.Deg2Rad) * targetDistance);
             Vector3 targetPosition = playerRoot.position + forwardDirection * targetDistance + upOffset;
             
-            // 2. Ajustar offset de la cámara según rotación vertical para mantener jugador en plano
             float verticalRadians = verticalRotation * Mathf.Deg2Rad;
             float yAdjustment = -Mathf.Sin(verticalRadians) * cameraVerticalAdjustment;
             float zAdjustment = -Mathf.Cos(verticalRadians) * cameraVerticalAdjustment + cameraVerticalAdjustment;
               Vector3 adjustedOffset = currentShoulderOffset + new Vector3(0, yAdjustment, zAdjustment);
             Vector3 desiredPosition = playerRoot.position + playerRoot.TransformDirection(adjustedOffset);
             
-            // 3. Sistema de colisión física mejorado
             Vector3 finalCameraPosition = desiredPosition;
             if (enableCameraCollision)
             {
-                // Punto de anclaje: centro del jugador a altura del torso
                 Vector3 pivotPoint = playerRoot.position + Vector3.up * targetHeight;
                 
-                // Dirección y distancia desde el pivot hasta la posición deseada de cámara
                 Vector3 directionToCamera = desiredPosition - pivotPoint;
                 float maxDistance = directionToCamera.magnitude;
                 
-                // SphereCast desde el pivot hacia la posición deseada de la cámara
-                // Esto detecta colisiones con un radio, evitando que la cámara atraviese paredes
                 if (Physics.SphereCast(pivotPoint, collisionRadius, directionToCamera.normalized, out RaycastHit hit, maxDistance, collisionLayers))
                 {
-                    // Verificar que no sea el jugador
                     if (!hit.collider.transform.IsChildOf(playerRoot) && hit.collider.transform != playerRoot)
                     {
-                        // Colocar la cámara justo antes del punto de colisión
                         float safeDistance = Mathf.Max(hit.distance - collisionRadius * 0.5f, 0.1f);
                         finalCameraPosition = pivotPoint + directionToCamera.normalized * safeDistance;
                     }
                 }
             }
             
-            // 4. Aplicar shake ANTES de aplicar posición (así el shake no atraviesa paredes)
             Vector3 shakeOffset = CalculateShakeOffset();
             Vector3 shakeInWorldSpace = transform.TransformDirection(shakeOffset);
             
-            // 5. Aplicar posición suavizada CON shake
             Vector3 targetPosWithShake = finalCameraPosition + shakeInWorldSpace;
             transform.position = Vector3.Lerp(transform.position, targetPosWithShake, Time.deltaTime * followSpeed);
             
-            // 6. Hacer que la cámara SIEMPRE mire al punto focal (target)
             Vector3 lookDirection = targetPosition - transform.position;
             if (lookDirection.sqrMagnitude > 0.01f)
             {
@@ -251,12 +226,11 @@ namespace BrickOps.Players
         {
             currentShakeOffset = Vector3.zero;
             
-            // Shake de disparo
             if (shootShakeTimer > 0)
             {
                 shootShakeTimer -= Time.deltaTime;
                 float progress = 1f - (shootShakeTimer / shootShakeDuration);
-                float damping = Mathf.Sin(progress * Mathf.PI); // Curva suave
+                float damping = Mathf.Sin(progress * Mathf.PI);
                 
                 float x = (Mathf.PerlinNoise(Time.time * 30f, 0f) - 0.5f) * 2f;
                 float y = (Mathf.PerlinNoise(0f, Time.time * 30f) - 0.5f) * 2f;
@@ -264,7 +238,6 @@ namespace BrickOps.Players
                 currentShakeOffset += new Vector3(x, y, 0) * shootShakeIntensity * damping;
             }
             
-            // Shake de salto
             if (jumpShakeTimer > 0)
             {
                 jumpShakeTimer -= Time.deltaTime;
@@ -273,7 +246,6 @@ namespace BrickOps.Players
                 currentShakeOffset.y += shake;
             }
             
-            // Shake de movimiento (procedural continuo)
             if (isMoving)
             {
                 shakeTime += Time.deltaTime * shakeFrequency;
@@ -311,18 +283,13 @@ namespace BrickOps.Players
             isSprinting = sprinting;
         }
         
-        // Shake triggers
         public void TriggerJumpShake() => jumpShakeTimer = jumpShakeDuration;
         public void TriggerShootShake() => shootShakeTimer = shootShakeDuration;
         
-        // Camera access
         public Camera GetCamera() => cam;
         public float GetVerticalAngleNormalized() => verticalRotation / maxVerticalAngle;
         public float GetVerticalAngleDegrees() => verticalRotation;
         
-        /// <summary>
-        /// Obtiene el punto focal donde mira la cámara (útil para armas)
-        /// </summary>
         public Vector3 GetTargetPosition()
         {
             if (playerRoot == null) return transform.position + transform.forward * targetDistance;
@@ -338,12 +305,10 @@ namespace BrickOps.Players
         {
             if (!showDebugGizmos || playerRoot == null || !Application.isPlaying) return;
             
-            // Punto de anclaje (pivot)
             Vector3 pivotPoint = playerRoot.position + Vector3.up * targetHeight;
             Gizmos.color = Color.yellow;
             Gizmos.DrawWireSphere(pivotPoint, 0.1f);
             
-            // Posición deseada de la cámara (sin colisión)
             float verticalRadians = verticalRotation * Mathf.Deg2Rad;
             float yAdjustment = -Mathf.Sin(verticalRadians) * cameraVerticalAdjustment;
             float zAdjustment = -Mathf.Cos(verticalRadians) * cameraVerticalAdjustment + cameraVerticalAdjustment;
@@ -353,42 +318,35 @@ namespace BrickOps.Players
             Gizmos.color = Color.green;
             Gizmos.DrawWireSphere(desiredPosition, 0.15f);
             
-            // Línea de raycast desde pivot a cámara
             Vector3 directionToCamera = desiredPosition - pivotPoint;
             float maxDistance = directionToCamera.magnitude;
             
             Gizmos.color = Color.cyan;
             Gizmos.DrawLine(pivotPoint, desiredPosition);
             
-            // Visualizar SphereCast
             if (enableCameraCollision)
             {
                 if (Physics.SphereCast(pivotPoint, collisionRadius, directionToCamera.normalized, out RaycastHit hit, maxDistance, collisionLayers))
                 {
                     if (!hit.collider.transform.IsChildOf(playerRoot) && hit.collider.transform != playerRoot)
                     {
-                        // Punto de colisión
                         Gizmos.color = Color.red;
                         Gizmos.DrawWireSphere(hit.point, collisionRadius);
                         
-                        // Posición final de la cámara (con offset de seguridad)
                         float safeDistance = Mathf.Max(hit.distance - collisionRadius * 0.5f, 0.1f);
                         Vector3 finalPos = pivotPoint + directionToCamera.normalized * safeDistance;
                         Gizmos.color = Color.magenta;
                         Gizmos.DrawWireSphere(finalPos, 0.15f);
                         
-                        // Línea desde pivot hasta punto de colisión
                         Gizmos.color = Color.red;
                         Gizmos.DrawLine(pivotPoint, hit.point);
                     }
                 }
             }
             
-            // Posición actual de la cámara
             Gizmos.color = Color.white;
             Gizmos.DrawWireSphere(transform.position, 0.2f);
             
-            // Punto focal (target)
             Vector3 forwardDirection = playerRoot.forward;
             Vector3 upOffset = Vector3.up * (targetHeight + Mathf.Tan(verticalRotation * Mathf.Deg2Rad) * targetDistance);
             Vector3 targetPosition = playerRoot.position + forwardDirection * targetDistance + upOffset;

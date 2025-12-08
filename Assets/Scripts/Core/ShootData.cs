@@ -9,13 +9,13 @@ namespace BrickOps.Core
     [Serializable]
     public class ShootData
     {
-        public int shooterId;      // ID del jugador que disparó
-        public int targetId;       // ID del jugador impactado (-1 si no impactó a nadie)
-        public float damage;       // Daño causado
-        public float hitX;         // Posición del impacto
+        public int shooterId;      
+        public int targetId;       
+        public float damage;   
+        public float hitX;      
         public float hitY;
         public float hitZ;
-        public bool didHit;        // Si impactó algo
+        public bool didHit;        
 
         public ShootData() { }
 
@@ -42,9 +42,8 @@ namespace BrickOps.Core
     [Serializable]
     public class DeathData
     {
-        public int victimId;       // ID del jugador que murió
-        public int killerId;       // ID del jugador que lo mató
-
+        public int victimId;       
+        public int killerId;      
         public DeathData() { }
 
         public DeathData(int victim, int killer)

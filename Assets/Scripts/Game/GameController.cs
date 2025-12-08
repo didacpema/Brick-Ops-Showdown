@@ -10,7 +10,6 @@ using BrickOps.Players;
 
 /// <summary>
 /// Controlador principal del juego
-/// Orquesta la comunicación entre sistemas y gestiona el ciclo de vida del juego
 /// </summary>
 public class GameController : MonoBehaviour
 {
@@ -26,7 +25,7 @@ public class GameController : MonoBehaviour
 
     [Header("Network Settings")]
     [Tooltip("Tasa de envío de paquetes por segundo")]
-    public float sendRate = 60f; // 60 paquetes/seg = 16.67ms
+    public float sendRate = 60f; 
 
     [Tooltip("Timeout para detectar desconexiones")]
     public float connectionTimeout = 10f;
@@ -43,7 +42,7 @@ public class GameController : MonoBehaviour
     #region Private Variables - Game State
     private int myPlayerId = -1;
     private bool isInitialized = false;
-    private InputManager cachedInputManager; // Cache para evitar búsquedas repetidas
+    private InputManager cachedInputManager; 
     #endregion
 
     #region Private Variables - Stats
@@ -83,7 +82,6 @@ public class GameController : MonoBehaviour
     {
         Debug.Log("=== GameController Start ===");
         
-        // Verificar si somos servidor
         if (NetworkManager.Instance != null && NetworkManager.Instance.isServer)
         {
             isServerHost = true;
@@ -107,10 +105,8 @@ public class GameController : MonoBehaviour
     {
         Debug.Log("[GameController] Initializing as SERVER HOST");
         
-        myPlayerId = 1; // Servidor siempre es Player 1
+        myPlayerId = 1; 
         
-        // --- CAMBIO IMPORTANTE: Reutilizar Socket ---
-        // Verificamos si ya traemos un socket abierto de la Sala de Espera
         if (NetworkManager.Instance.udpSocket != null)
         {
             udpSocket = NetworkManager.Instance.udpSocket;
@@ -118,7 +114,6 @@ public class GameController : MonoBehaviour
         }
         else
         {
-            // Solo si NO hay socket (ej: entraste directo a la escena Game para pruebas), creamos uno
             try
             {
                 udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -136,7 +131,6 @@ public class GameController : MonoBehaviour
             }
         }
         
-        // Inicializar componentes de juego
         if (!SetupPlayerManager())
         {
             ReturnToMenu();
@@ -158,7 +152,6 @@ public class GameController : MonoBehaviour
         if (!isInitialized)
             return;
 
-        // Red - servidor maneja recepción diferente
         if (isServerHost)
         {
             ReceiveAsServer();
@@ -169,22 +162,18 @@ public class GameController : MonoBehaviour
             CheckConnection();
         }
         
-        // Enviar actualización solo si hay otros jugadores conectados
         if (!isServerHost || serverClients.Count > 0)
         {
             SendPeriodicUpdate();
         }
 
-        // Jugadores
         if (PlayerManager.Instance != null)
         {
             PlayerManager.Instance.UpdateRemotePlayers();
         }
 
-        // Cámara
         UpdateCamera();
 
-        // Input de sistema
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             ReturnToMenu();
@@ -237,18 +226,14 @@ public class GameController : MonoBehaviour
 
     bool InitializeGame()
     {
-        // Network
         if (!SetupNetworking())
             return false;
 
-        // Player Manager
         if (!SetupPlayerManager())
             return false;
 
-        // Event Manager
         SetupEventListeners();
 
-        // Input
         SetupInput();
 
         // Camera
@@ -301,7 +286,6 @@ public class GameController : MonoBehaviour
             return;
         }
 
-        // Suscribirse a eventos relevantes
         EventManager.Instance.OnPlayerHit += HandlePlayerHit;
         EventManager.Instance.OnPlayerDied += HandlePlayerDeath;
         EventManager.Instance.OnPlayerRespawned += HandlePlayerRespawn;
@@ -315,12 +299,10 @@ public class GameController : MonoBehaviour
         if (PlayerManager.Instance?.LocalPlayer == null)
             return;
 
-        // Buscar InputManager en el prefab (ya debería existir)
         cachedInputManager = PlayerManager.Instance.LocalPlayer.GetComponent<InputManager>();
         
         if (cachedInputManager == null)
         {
-            // Solo si no existe, añadirlo (compatibilidad con prefabs antiguos)
             Debug.LogWarning("[GameController] InputManager not found in prefab, adding one...");
             cachedInputManager = PlayerManager.Instance.LocalPlayer.AddComponent<InputManager>();
             cachedInputManager.Initialize(PlayerManager.Instance.LocalPlayer);
@@ -358,13 +340,12 @@ public class GameController : MonoBehaviour
 
     void ProcessServerMessage(IPEndPoint sender, string message)
     {
-        // Nuevo cliente conectándose
         if (!serverPlayers.ContainsKey(sender))
         {
             string playerName = message.Trim();
 
 
-            int newPlayerId = serverClients.Count + 1; // IDs empiezan en 1 (servidor es 1)
+            int newPlayerId = serverClients.Count + 1;
             
             PlayerInfo playerInfo = new PlayerInfo
             {
@@ -375,13 +356,11 @@ public class GameController : MonoBehaviour
             serverPlayers[sender] = playerInfo;
             serverClients.Add(sender);
             
-            // Enviar ID al cliente
             SendToClient(sender, NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_ID, newPlayerId.ToString()));
             SendToClient(sender, $"Welcome {playerName}! You are Player {newPlayerId}");
             
             Debug.Log($"[Server] Player {newPlayerId} ({playerName}) connected from {sender}");
             
-            // Si hay 2 jugadores (servidor + 1 cliente), permitir inicio
             if (serverClients.Count >= 1)
             {
                 BroadcastToClients(NetworkProtocol.READY_TO_START);
@@ -391,7 +370,6 @@ public class GameController : MonoBehaviour
             return;
         }
         
-        // Mensajes de jugadores conectados
         if (!NetworkProtocol.TryParseMessage(message, out string messageType, out string data))
         {
             return;
@@ -400,10 +378,8 @@ public class GameController : MonoBehaviour
         switch (messageType)
         {
             case NetworkProtocol.PLAYER_DATA:
-                // Retransmitir posición a otros clientes
                 BroadcastToClients(message, sender);
                 
-                // Procesar también localmente para actualizar jugadores remotos
                 ProcessPlayerData(data);
                 break;
 
@@ -413,7 +389,7 @@ public class GameController : MonoBehaviour
                 break;
 
             case NetworkProtocol.DEATH_DATA:
-                BroadcastToClients(message, null); // Enviar a todos
+                BroadcastToClients(message, null); 
                 ProcessDeathData(data);
                 break;
 
@@ -433,7 +409,6 @@ public class GameController : MonoBehaviour
                 {
                     RegisterAndApplyName(nameData.playerId, nameData.playerName);
                     
-                    // Si soy servidor, sigo retransmitiendo a los demás
                     if (isServerHost) BroadcastToClients(message, sender as IPEndPoint);
                 }
                 break;
@@ -457,7 +432,6 @@ public class GameController : MonoBehaviour
                 break;
 
             default:
-                // Chat u otros mensajes
                 BroadcastToClients(message, sender);
                 break;
         }
@@ -480,7 +454,6 @@ public class GameController : MonoBehaviour
 
     public void BroadcastToClients(string msg, IPEndPoint exclude = null)
     {
-        // Verificar que el socket esté disponible antes de intentar enviar
         if (udpSocket == null)
             return;
             
@@ -497,7 +470,6 @@ public class GameController : MonoBehaviour
             }
             catch (ObjectDisposedException)
             {
-                // Socket ya cerrado, salir del loop
                 Debug.LogWarning("[Server] Socket already disposed, cannot broadcast");
                 break;
             }
@@ -530,14 +502,12 @@ public class GameController : MonoBehaviour
         {
             PlayerState state;
 
-            // Usar InputManager cacheado
             if (cachedInputManager != null)
             {
                 state = cachedInputManager.GetCurrentPlayerState(myPlayerId);
             }
             else
             {
-                // Fallback: crear estado solo con posición
                 state = new PlayerState(
                     myPlayerId,
                     localPlayer.transform.position,
@@ -580,7 +550,6 @@ public class GameController : MonoBehaviour
                 GameObject enemy = PlayerManager.Instance?.GetPlayer(targetId);
                 if (enemy != null)
                 {
-                    // Forzamos la actualización visual de la barra de vida del enemigo
                     enemy.GetComponent<PlayerHealth>()?.ApplyRemoteDamage(damage);
                 }
             }
@@ -662,16 +631,13 @@ public class GameController : MonoBehaviour
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.BARRICADA_HIT, data);
             byte[] bytes = NetworkProtocol.MessageToBytes(message);
 
-            // Si soy Servidor/Host, lo proceso directamente y aviso a los demás
             if (isServerHost)
             {
-                // Aplicar daño localmente (como autoridad)
                 BarricadaManager.Instance?.ApplyDamageToBarricada(barricadaId, damage);
                 BroadcastToClients(message);
                 }
             else
             {
-                // Si soy Cliente, se lo mando al server
                 udpSocket.SendTo(bytes, serverEndPoint);
             }
         }
@@ -684,7 +650,6 @@ public class GameController : MonoBehaviour
     {
         if (udpSocket == null) return;
         
-        // Obtener mi nombre del NetworkManager
         string myName = NetworkManager.Instance != null ? NetworkManager.Instance.playerName : "Unknown";
 
         PlayerNameData data = new PlayerNameData(myPlayerId, myName);
@@ -796,7 +761,6 @@ public class GameController : MonoBehaviour
                 {
                     RegisterAndApplyName(nameData.playerId, nameData.playerName);
                     
-                    // Si soy servidor, sigo retransmitiendo a los demás
                     if (isServerHost) BroadcastToClients(message);
                 }
                 break;
@@ -828,7 +792,6 @@ public class GameController : MonoBehaviour
             return;
         }
 
-        // Actualizar en PlayerManager
         PlayerManager.Instance?.UpdatePlayerState(state.playerId, state);
     }
 
@@ -841,7 +804,6 @@ public class GameController : MonoBehaviour
 
         Debug.Log($"<color=blue>[Net] Received shoot: {shootData.shooterId} -> {shootData.targetId}</color>");
 
-        // Si YO soy el objetivo, aplicar daño
         if (shootData.targetId == myPlayerId)
         {
             GameObject localPlayer = PlayerManager.Instance?.LocalPlayer;
@@ -852,14 +814,12 @@ public class GameController : MonoBehaviour
             }
         }
 
-        // Actualizar la barra de vida de otros jugadores
         if (shootData.didHit && shootData.targetId >= 0 && shootData.targetId != myPlayerId)
         {
             GameObject remoteTarget = PlayerManager.Instance?.GetPlayer(shootData.targetId);
             remoteTarget?.GetComponent<PlayerHealth>()?.ApplyRemoteDamage(shootData.damage);
         }
 
-        // Si el disparo viene de OTRO jugador, reproducir efectos
         if (shootData.shooterId != myPlayerId)
         {
             GameObject shooter = PlayerManager.Instance?.GetPlayer(shootData.shooterId);
@@ -878,12 +838,10 @@ public class GameController : MonoBehaviour
         if (deathData == null)
             return;
 
-        // Notificar evento
         EventManager.Instance?.InvokeKillFeedMessage(
             $"Player {deathData.killerId} eliminated Player {deathData.victimId}"
         );
 
-        // Si otro jugador murió, desactivar temporalmente
         if (deathData.victimId != myPlayerId)
         {
             GameObject victim = PlayerManager.Instance?.GetPlayer(deathData.victimId);
@@ -930,14 +888,12 @@ public class GameController : MonoBehaviour
         if (transformData == null)
             return;
 
-        // Buscar todos los objetos con RotationAnimation y aplicar la transformación
         RotationAnimation[] rotationObjects = FindObjectsOfType<RotationAnimation>();
         foreach (var rotationObj in rotationObjects)
         {
             rotationObj.ApplyTransform(transformData);
         }
 
-        // Buscar todos los objetos con Elevator y aplicar la transformación
         Elevator[] elevators = FindObjectsOfType<Elevator>();
         foreach (var elevator in elevators)
         {
@@ -952,7 +908,6 @@ public class GameController : MonoBehaviour
     }
     void HandlePlayerSpawnedName(int id, bool isLocal)
     {
-        // Si tengo el nombre de este ID en la agenda, pónselo ahora mismo
         if (nameCache.ContainsKey(id))
         {
             RegisterAndApplyName(id, nameCache[id]);
@@ -967,13 +922,11 @@ public class GameController : MonoBehaviour
         
         Debug.Log($"<color=green>[GameController] Processing health pack pickup: Pack {healthPackData.healthPackId} collected by Player {healthPackData.collectorId}</color>");
         
-        // Buscar el health pack en la escena
         HealthPack[] healthPacks = FindObjectsByType<HealthPack>(FindObjectsSortMode.None);
         foreach (HealthPack pack in healthPacks)
         {
             if (pack.healthPackId == healthPackData.healthPackId)
             {
-                // Procesar el pickup en este cliente
                 pack.ProcessNetworkPickup(healthPackData.collectorId);
                 break;
             }
@@ -996,16 +949,13 @@ public class GameController : MonoBehaviour
     #region Event Handlers
     void HandlePlayerHit(int shooterId, int targetId, float damage, Vector3 hitPoint)
     {
-        // Enviar disparo por red
         SendShootData(shooterId, targetId, damage, hitPoint, targetId != -1);
     }
 
     void HandlePlayerDeath(int victimId, int killerId)
     {
-        // Enviar muerte por red
         SendDeathData(victimId, killerId);
         
-        // Mensaje en kill feed
         EventManager.Instance?.InvokeKillFeedMessage(
             $"Player {killerId} eliminated Player {victimId}"
         );
@@ -1058,7 +1008,6 @@ public class GameController : MonoBehaviour
     {
         isInitialized = false;
 
-        // Notificar a clientes si somos servidor (antes de cerrar el socket)
         if (isServerHost && serverClients.Count > 0 && udpSocket != null)
         {
             try
@@ -1071,7 +1020,6 @@ public class GameController : MonoBehaviour
             }
         }
 
-        // Cerrar socket
         if (udpSocket != null)
         {
             try
@@ -1085,7 +1033,6 @@ public class GameController : MonoBehaviour
             }
         }
 
-        // Limpiar eventos
         if (EventManager.Instance != null)
         {
             EventManager.Instance.OnPlayerHit -= HandlePlayerHit;
@@ -1093,7 +1040,6 @@ public class GameController : MonoBehaviour
             EventManager.Instance.OnPlayerRespawned -= HandlePlayerRespawn;
         }
 
-        // Limpiar jugadores
         PlayerManager.Instance?.ClearAllPlayers();
 
         Debug.Log("[GameController] Cleanup completed");
@@ -1114,32 +1060,27 @@ public class GameController : MonoBehaviour
 
     void RegisterAndApplyName(int id, string name)
     {
-        // 1. Guardar en la agenda (o actualizar si cambió)
         if (nameCache.ContainsKey(id))
             nameCache[id] = name;
         else
             nameCache.Add(id, name);
 
-        // 2. Intentar buscar al jugador visualmente
         if (PlayerManager.Instance != null)
         {
             GameObject playerObj = PlayerManager.Instance.GetPlayer(id);
             if (playerObj != null)
             {
-                // Buscar el script del cartelito y ponerle el nombre
                 PlayerNameDisplay display = playerObj.GetComponent<PlayerNameDisplay>();
                 if (display != null)
                 {
                     display.SetName(name);
                 }
-                // Fallback: Si no tiene el script, ponerlo en el nombre del GameObject para debug
                 playerObj.name = $"Player_{id}_{name}";
             }
         }
     }
     /// <summary>
     /// Obtiene estadísticas de red para mostrar en UI.
-    /// pingMs devuelve -1 si aún no se han recibido paquetes (N/A)
     /// </summary>
     public void GetNetworkStats(out int pingMs, out int sent, out int received, out float packetsPerSecond)
     {
@@ -1148,10 +1089,9 @@ public class GameController : MonoBehaviour
         sent = packetsSent;
         received = packetsReceived;
 
-        // Si aún no hemos recibido ningún paquete, no hay base para latencia
         if (packetsReceived <= 0)
         {
-            pingMs = -1; // N/A
+            pingMs = -1;
         }
         else
         {

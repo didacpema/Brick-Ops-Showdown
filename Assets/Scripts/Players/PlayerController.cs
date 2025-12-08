@@ -2,11 +2,6 @@ using UnityEngine;
 using BrickOps.Core;
 using BrickOps.Players;
 
-/// <summary>
-/// Controlador principal del jugador
-/// Este componente debe estar en el root del prefab y coordina todos los sistemas
-/// Usar [RequireComponent] asegura que todos los componentes necesarios existen
-/// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(CapsuleCollider))]
 [RequireComponent(typeof(Animator))]
@@ -33,7 +28,7 @@ public class PlayerController : MonoBehaviour
     public RemotePlayerAnimator remoteAnimator;
 
     [Header("Camera")]
-    [SerializeField] private Transform cameraTargetPoint; // GameObject vacío fijo
+    [SerializeField] private Transform cameraTargetPoint; 
     #endregion
 
     #region Component Cache
@@ -52,12 +47,11 @@ public class PlayerController : MonoBehaviour
 
     void Start()
     {
-        // Si no hay target point, créalo
         if (cameraTargetPoint == null)
         {
             GameObject targetObj = new GameObject("CameraTarget");
             targetObj.transform.SetParent(transform);
-            targetObj.transform.localPosition = new Vector3(0f, 1.6f, 0f); // Altura de ojos
+            targetObj.transform.localPosition = new Vector3(0f, 1.6f, 0f);
             targetObj.transform.localRotation = Quaternion.identity;
             cameraTargetPoint = targetObj.transform;
         }
@@ -72,9 +66,6 @@ public class PlayerController : MonoBehaviour
         playerRenderer = GetComponent<Renderer>();
     }
 
-    /// <summary>
-    /// Inicializa el jugador local
-    /// </summary>
     public void InitializeAsLocal(int id)
     {
         playerId = id;
@@ -98,7 +89,6 @@ public class PlayerController : MonoBehaviour
             weapon.InitializeForLocalPlayer(cam);
         }
 
-        // Desactivar RemotePlayerAnimator si existe
         if (remoteAnimator != null)
         {
             remoteAnimator.enabled = false;
@@ -107,9 +97,6 @@ public class PlayerController : MonoBehaviour
         Debug.Log($"[PlayerController] Initialized as LOCAL player {id}");
     }
 
-    /// <summary>
-    /// Inicializa el jugador remoto
-    /// </summary>
     public void InitializeAsRemote(int id)
     {
         playerId = id;
@@ -122,7 +109,6 @@ public class PlayerController : MonoBehaviour
             health.Initialize(id, false);
         }
 
-        // Desactivar componentes de jugador local
         if (inputManager != null)
         {
             inputManager.enabled = false;
@@ -139,7 +125,6 @@ public class PlayerController : MonoBehaviour
             weapon.enabled = false;
         }
 
-        // Activar RemotePlayerAnimator
         if (remoteAnimator != null)
         {
             remoteAnimator.enabled = true;
@@ -154,7 +139,6 @@ public class PlayerController : MonoBehaviour
         if (rb != null)
         {
             rb.isKinematic = isKinematic;
-            // Freeze all rotation axes to prevent collision-induced spins
             rb.constraints = RigidbodyConstraints.FreezeRotation;
         }
     }

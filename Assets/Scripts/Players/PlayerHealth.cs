@@ -62,7 +62,6 @@ public class PlayerHealth : MonoBehaviour
     {
         UpdateHealthBar();
         
-        // Configurar la barra de vida para que mire siempre a la cámara
         if (healthBarCanvas != null)
         {
             healthBarCanvas.worldCamera = Camera.main;
@@ -71,25 +70,20 @@ public class PlayerHealth : MonoBehaviour
 
     void Update()
     {
-        // Hacer que la barra de vida mire a la cámara
         if (healthBarCanvas != null && Camera.main != null)
         {
             healthBarCanvas.transform.LookAt(Camera.main.transform);
-            healthBarCanvas.transform.Rotate(0, 180, 0); // Voltear para que no esté invertida
+            healthBarCanvas.transform.Rotate(0, 180, 0); 
         }
     }
     #endregion
 
     #region Public Methods
-    /// <summary>
-    /// Inicializa el componente de salud
-    /// </summary>
     public void Initialize(int id, bool isLocal)
     {
         playerId = id;
         isLocalPlayer = isLocal;
         
-        // Ocultar la barra de vida si es el jugador local
         if (isLocal && healthBarCanvas != null)
         {
             healthBarCanvas.gameObject.SetActive(false);
@@ -98,9 +92,6 @@ public class PlayerHealth : MonoBehaviour
         Debug.Log($"[PlayerHealth] Inicializado - ID: {playerId}, Local: {isLocal}");
     }
 
-    /// <summary>
-    /// Aplica daño al jugador
-    /// </summary>
     public void TakeDamage(float damage, int attackerId)
     {
         if (isDead) return;
@@ -120,13 +111,9 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Cura al jugador
-    /// </summary>
     public void Heal(float amount)
     {
         if (isDead) return;
-        //heal player +25% de su vida por segundo hasta su vida maxima
         if (_healingRoutine == null)
         _healingRoutine = StartCoroutine(HealOverTime());
         
@@ -134,8 +121,7 @@ public class PlayerHealth : MonoBehaviour
     IEnumerator HealOverTime()
     {
        while (!isDead && currentHealth < maxHealth)
-        {
-            // curar 10% de la vida actual por segundo        
+        { 
             float healAmount = currentHealth * 0.20f;
 
             currentHealth = Mathf.Min(maxHealth, currentHealth + healAmount);
@@ -150,25 +136,16 @@ public class PlayerHealth : MonoBehaviour
         _healingRoutine = null;
     }
 
-    /// <summary>
-    /// Obtiene el porcentaje de vida actual
-    /// </summary>
     public float GetHealthPercentage()
     {
         return currentHealth / maxHealth;
     }
 
-    /// <summary>
-    /// Verifica si el jugador está vivo
-    /// </summary>
     public bool IsAlive()
     {
         return !isDead;
     }
 
-    /// <summary>
-    /// Aplica daño visual en otros clientes sin disparar eventos ni morir
-    /// </summary>
     public void ApplyRemoteDamage(float damage)
     {
         if (isLocalPlayer || isDead || damage <= 0f)
@@ -178,9 +155,6 @@ public class PlayerHealth : MonoBehaviour
         UpdateHealthBar();
     }
 
-    /// <summary>
-    /// Sincroniza la salud cuando un jugador remota respawnea
-    /// </summary>
     public void ResetHealthState()
     {
         currentHealth = maxHealth;
@@ -189,9 +163,6 @@ public class PlayerHealth : MonoBehaviour
         NotifyHealthChanged();
     }
 
-    /// <summary>
-    /// Marca visualmente al jugador como muerto sin reenviar eventos
-    /// </summary>
     public void MarkDeadLocally()
     {
         if (isDead)
@@ -207,12 +178,10 @@ public class PlayerHealth : MonoBehaviour
     #region Private Methods
     void UpdateHealthBar()
     {
-        //Update enemy health Bar
         if (healthBar != null)
         {
             healthBar.value = GetHealthPercentage();
             
-            // Cambiar color según la vida
             Image fillImage = healthBar.fillRect.GetComponent<Image>();
             if (fillImage != null)
             {
@@ -256,13 +225,10 @@ public class PlayerHealth : MonoBehaviour
         isDead = true;
         Debug.Log($"<color=red>☠ Player {playerId} eliminado por Player {killerId}</color>");
 
-        // Paso 3: Usar EventManager en lugar de GameController
         EventManager.Instance?.InvokePlayerDied(playerId, killerId);
 
-        // Desactivar el jugador
         gameObject.SetActive(false);
 
-        // Programar respawn
         if (isLocalPlayer)
         {
             Invoke(nameof(Respawn), respawnDelay);
@@ -278,12 +244,10 @@ public class PlayerHealth : MonoBehaviour
 
         Vector3 spawnPos = PlayerManager.Instance?.GetSpawnPosition(playerId) ?? Vector3.zero;
 
-        // Reactivar el jugador y reposicionarlo
         gameObject.SetActive(true);
         transform.position = spawnPos;
         transform.rotation = Quaternion.identity;
 
-        // Usar EventManager para respawn con posición real
         EventManager.Instance?.InvokePlayerRespawned(playerId, spawnPos);
 
         UpdateHealthBar();

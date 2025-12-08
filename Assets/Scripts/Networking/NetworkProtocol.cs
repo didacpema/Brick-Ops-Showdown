@@ -6,7 +6,6 @@ namespace BrickOps.Networking
 {
     /// <summary>
     /// Maneja el protocolo de comunicación de red
-    /// Centraliza la serialización y parsing de mensajes
     /// </summary>
     public static class NetworkProtocol
     {
@@ -27,34 +26,22 @@ namespace BrickOps.Networking
         #endregion
 
         #region Message Building
-        /// <summary>
-        /// Construye un mensaje con formato tipo:datos
-        /// </summary>
         public static string BuildMessage(string messageType, string data = "")
         {
             return string.IsNullOrEmpty(data) ? messageType : $"{messageType}:{data}";
         }
 
-        /// <summary>
-        /// Construye un mensaje con objeto serializado a JSON
-        /// </summary>
         public static string BuildMessage<T>(string messageType, T data)
         {
             string json = SerializeToJson(data);
             return $"{messageType}:{json}";
         }
 
-        /// <summary>
-        /// Convierte mensaje a bytes UTF8
-        /// </summary>
-        public static byte[] MessageToBytes(string message)
+         public static byte[] MessageToBytes(string message)
         {
             return Encoding.UTF8.GetBytes(message);
         }
 
-        /// <summary>
-        /// Convierte bytes a mensaje string
-        /// </summary>
         public static string BytesToMessage(byte[] buffer, int length)
         {
             return Encoding.UTF8.GetString(buffer, 0, length);
@@ -62,9 +49,6 @@ namespace BrickOps.Networking
         #endregion
 
         #region Message Parsing
-        /// <summary>
-        /// Parsea un mensaje y devuelve el tipo y datos
-        /// </summary>
         public static bool TryParseMessage(string message, out string messageType, out string data)
         {
             messageType = string.Empty;
@@ -77,7 +61,6 @@ namespace BrickOps.Networking
             
             if (separatorIndex == -1)
             {
-                // Mensaje sin datos adicionales
                 messageType = message;
                 return true;
             }
@@ -87,9 +70,6 @@ namespace BrickOps.Networking
             return true;
         }
 
-        /// <summary>
-        /// Parsea mensaje y deserializa datos a tipo T
-        /// </summary>
         public static bool TryParseMessage<T>(string message, out string messageType, out T data)
         {
             data = default;
@@ -115,9 +95,6 @@ namespace BrickOps.Networking
         #endregion
 
         #region JSON Serialization
-        /// <summary>
-        /// Serializa objeto a JSON
-        /// </summary>
         public static string SerializeToJson<T>(T obj)
         {
             try
@@ -131,9 +108,6 @@ namespace BrickOps.Networking
             }
         }
 
-        /// <summary>
-        /// Deserializa JSON a objeto
-        /// </summary>
         public static T DeserializeFromJson<T>(string json)
         {
             try
@@ -149,27 +123,18 @@ namespace BrickOps.Networking
         #endregion
 
         #region Validation
-        /// <summary>
-        /// Valida que un mensaje no esté vacío o corrupto
-        /// </summary>
         public static bool IsValidMessage(string message)
         {
             return !string.IsNullOrEmpty(message) && message.Length < 2048;
         }
 
-        /// <summary>
-        /// Valida que un ID de jugador sea válido
-        /// </summary>
         public static bool IsValidPlayerId(int playerId)
         {
-            return playerId > 0 && playerId < 100; // Límite razonable
+            return playerId > 0 && playerId < 100;
         }
         #endregion
     }
 
-    /// <summary>
-    /// Wrapper para mensajes de red con metadatos
-    /// </summary>
     [Serializable]
     public class NetworkMessage
     {

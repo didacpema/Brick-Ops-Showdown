@@ -3,9 +3,6 @@ using BrickOps.Core;
 
 namespace BrickOps.Players
 {
-    /// <summary>
-    /// Sincroniza las animaciones de jugadores remotos basándose en PlayerState recibido de la red
-    /// Se adjunta automáticamente a jugadores remotos para replicar sus animaciones    /// </summary>
     public class RemotePlayerAnimator : MonoBehaviour
     {
         #region Private Variables
@@ -47,7 +44,6 @@ namespace BrickOps.Players
 
         public void Initialize()
         {
-            // Buscar Animator en este objeto o en hijos
             animator = GetComponent<Animator>();
             if (animator == null)
             {
@@ -67,15 +63,11 @@ namespace BrickOps.Players
         #endregion
 
         #region Animation Sync
-        /// <summary>
-        /// Aplica el estado recibido al Animator
-        /// </summary>
         public void ApplyAnimationState(PlayerState state)
         {
             if (!isInitialized || animator == null || state == null)
                 return;
 
-            // Actualizar parámetros bool (solo si cambiaron para optimizar)
             if (state.isWalking != lastWalking)
             {
                 animator.SetBool(HashIsWalking, state.isWalking);
@@ -106,7 +98,6 @@ namespace BrickOps.Players
                 lastGrounded = state.isGrounded;
             }
 
-            // Detectar disparo por cambio en shootCount
             if (lastShootCount != -1 && state.shootCount > lastShootCount)
             {
                 animator.SetTrigger(HashShoot);
@@ -117,7 +108,6 @@ namespace BrickOps.Players
             }
             lastShootCount = state.shootCount;
 
-            // Detectar salto por cambio en jumpCount
             if (lastJumpCount != -1 && state.jumpCount > lastJumpCount)
             {
                 animator.SetTrigger(HashJump);
@@ -127,23 +117,17 @@ namespace BrickOps.Players
             }
             lastJumpCount = state.jumpCount;
             
-            // Decrementar timer de animación de disparo
             if (shootAnimationTimer > 0)
             {
                 shootAnimationTimer -= Time.deltaTime;
             }
             
-            // Controlar el peso de la Upper Body Layer (Layer 1)
-            // Activar cuando: está apuntando O acaba de disparar (timer activo)
             float targetWeight = (state.isAiming || shootAnimationTimer > 0) ? 1f : 0f;
             float currentWeight = animator.GetLayerWeight(1);
             float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * 10f);
             animator.SetLayerWeight(1, newWeight);
         }
 
-        /// <summary>
-        /// Reinicia todos los estados a valores por defecto
-        /// </summary>
         public void ResetAnimationState()
         {
             if (!isInitialized || animator == null)
@@ -169,7 +153,6 @@ namespace BrickOps.Players
         #region Unity Lifecycle
         void Update()
         {
-            // Decrementar timer de animación de disparo
             if (shootAnimationTimer > 0)
             {
                 shootAnimationTimer -= Time.deltaTime;
@@ -178,14 +161,8 @@ namespace BrickOps.Players
         #endregion
 
         #region Public API
-        /// <summary>
-        /// Verifica si el Animator está inicializado correctamente
-        /// </summary>
         public bool IsInitialized => isInitialized;
 
-        /// <summary>
-        /// Obtiene el Animator
-        /// </summary>
         public Animator GetAnimator() => animator;
         #endregion
     }

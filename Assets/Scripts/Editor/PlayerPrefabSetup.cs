@@ -57,11 +57,9 @@ namespace BrickOps.Editor
 
         void SetupPrefab()
         {
-            // Verificar que es un prefab o instancia
             if (PrefabUtility.IsPartOfPrefabAsset(playerPrefab) || 
                 PrefabUtility.IsPartOfPrefabInstance(playerPrefab))
             {
-                // Si es prefab asset, necesitamos trabajar con una instancia
                 string path = AssetDatabase.GetAssetPath(playerPrefab);
                 GameObject instance = PrefabUtility.LoadPrefabContents(path);
                 
@@ -80,7 +78,6 @@ namespace BrickOps.Editor
             }
             else
             {
-                // Es una instancia en escena
                 SetupComponents(playerPrefab);
                 
                 EditorUtility.DisplayDialog("Success", 
@@ -92,14 +89,12 @@ namespace BrickOps.Editor
 
         void SetupComponents(GameObject player)
         {
-            // 1. PlayerController (el orquestador)
             if (player.GetComponent<PlayerController>() == null)
             {
                 player.AddComponent<PlayerController>();
                 Debug.Log("Added PlayerController");
             }
 
-            // 2. Rigidbody
             Rigidbody rb = player.GetComponent<Rigidbody>();
             if (rb == null)
             {
@@ -112,7 +107,6 @@ namespace BrickOps.Editor
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
 
-            // 3. CapsuleCollider
             CapsuleCollider collider = player.GetComponent<CapsuleCollider>();
             if (collider == null)
             {
@@ -122,15 +116,13 @@ namespace BrickOps.Editor
             collider.center = new Vector3(0, 1, 0);
             collider.radius = 0.5f;
             collider.height = 2f;
-            collider.direction = 1; // Y-axis
+            collider.direction = 1; 
 
-            // 4. Animator (si no existe, advertir)
             if (player.GetComponent<Animator>() == null)
             {
                 Debug.LogWarning("Animator not found - please add manually and assign controller");
             }
 
-            // 5. PlayerHealth
             if (player.GetComponent<PlayerHealth>() == null)
             {
                 PlayerHealth health = player.AddComponent<PlayerHealth>();
@@ -139,7 +131,6 @@ namespace BrickOps.Editor
                 Debug.Log("Added PlayerHealth");
             }
 
-            // 6. WeaponController
             if (player.GetComponent<WeaponController>() == null)
             {
                 WeaponController weapon = player.AddComponent<WeaponController>();
@@ -155,7 +146,6 @@ namespace BrickOps.Editor
                 Debug.Log("Added WeaponController");
             }
 
-            // 7. InputManager
             if (player.GetComponent<InputManager>() == null)
             {
                 InputManager input = player.AddComponent<InputManager>();
@@ -170,14 +160,12 @@ namespace BrickOps.Editor
                 Debug.Log("Added InputManager");
             }
 
-            // 8. RemotePlayerAnimator
             if (player.GetComponent<RemotePlayerAnimator>() == null)
             {
                 player.AddComponent<RemotePlayerAnimator>();
                 Debug.Log("Added RemotePlayerAnimator");
             }
 
-            // 9. Setup Camera hijo
             Transform cameraTransform = player.transform.Find("Camera");
             if (cameraTransform == null)
             {
@@ -190,7 +178,6 @@ namespace BrickOps.Editor
 
             GameObject cameraObj = cameraTransform.gameObject;
 
-            // Camera component
             Camera cam = cameraObj.GetComponent<Camera>();
             if (cam == null)
             {
@@ -201,14 +188,12 @@ namespace BrickOps.Editor
                 Debug.Log("Added Camera component");
             }
 
-            // AudioListener
             if (cameraObj.GetComponent<AudioListener>() == null)
             {
                 cameraObj.AddComponent<AudioListener>();
                 Debug.Log("Added AudioListener");
             }
 
-            // CameraController
             if (cameraObj.GetComponent<CameraController>() == null)
             {
                 CameraController camController = cameraObj.AddComponent<CameraController>();
@@ -235,11 +220,9 @@ namespace BrickOps.Editor
                 Debug.Log("Added CameraController");
             }
 
-            // 10. Conectar referencias en PlayerController
             PlayerController controller = player.GetComponent<PlayerController>();
             if (controller != null)
             {
-                // Usar SerializedObject para poder modificar en modo prefab
                 SerializedObject so = new SerializedObject(controller);
                 
                 so.FindProperty("inputManager").objectReferenceValue = player.GetComponent<InputManager>();

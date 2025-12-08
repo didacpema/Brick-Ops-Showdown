@@ -2,11 +2,6 @@ using UnityEngine;
 using BrickOps.Core;
 using BrickOps.Players;
 
-/// <summary>
-/// Sistema de control del jugador optimizado
-/// Maneja input, movimiento, rotación, salto y animaciones
-/// Integrado con CameraController, CameraShake y TorsoAimController
-/// </summary>
 public class InputManager : MonoBehaviour
 {
     #region Inspector Variables
@@ -53,12 +48,12 @@ public class InputManager : MonoBehaviour
     private int shootBufferFrames;
     private int currentShootCount;
     private int currentJumpCount;
-    private bool justShot; // Para cancelar el correr al disparar
-    private float shootAnimationTimer; // Timer para mantener Upper Body Layer activo
+    private bool justShot; 
+    private float shootAnimationTimer; 
     
     private const int TRIGGER_BUFFER_DURATION = 10;
     private const float JUMP_GROUND_CHECK_DELAY = 0.2f;
-    private const float SHOOT_ANIMATION_DURATION = 0.6f; // Duración para mantener layer activo (reducido)
+    private const float SHOOT_ANIMATION_DURATION = 0.6f;
     #endregion
 
     #region Animation Hashes
@@ -111,7 +106,6 @@ public class InputManager : MonoBehaviour
         weaponController = playerObject.GetComponent<WeaponController>();
         cameraController = playerObject.GetComponentInChildren<CameraController>();
         
-        // Conectar el crosshair con el WeaponController del jugador
         ConnectCrosshairToWeapon();
 
         return rb != null;
@@ -120,12 +114,11 @@ public class InputManager : MonoBehaviour
     {
         if (weaponController == null) return;
         
-        // Buscar el crosshair en la escena
         BrickOps.UI.DynamicCrosshair crosshair = FindAnyObjectByType<BrickOps.UI.DynamicCrosshair>();
         if (crosshair != null)
         {
             crosshair.SetWeaponController(weaponController);
-            crosshair.inputManager = this; // Asignar también el InputManager para detectar salto
+            crosshair.inputManager = this; 
             Debug.Log("[InputManager] Crosshair conectado al WeaponController del jugador");
         }
     }
@@ -154,12 +147,11 @@ public class InputManager : MonoBehaviour
             cameraController.SetMovementState(isMoving, isRunning);
         }
         
-        // Actualizar estado del arma para el crosshair dinámico
         if (weaponController != null)
         {
             weaponController.SetAiming(isAiming);
             weaponController.SetMovementState(isMoving, isRunning);
-            weaponController.SetGrounded(isGrounded); // Actualizar estado de salto
+            weaponController.SetGrounded(isGrounded); 
         }
     }
     #endregion
@@ -189,18 +181,15 @@ public class InputManager : MonoBehaviour
             moveDirection += playerTransform.right * horizontal;        if (moveDirection.sqrMagnitude > 1f)
             moveDirection.Normalize();
 
-        // Si intentas correr estando agachado, ponerte de pie automáticamente
         if (isCrouching && Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f)
         {
             isCrouching = false;
         }
 
-        // No permitir correr si acabas de disparar o si estás apuntando
         bool canRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isAiming && !justShot && !isCrouching;
         isRunning = canRun;
         isMoving = moveDirection.sqrMagnitude > 0.01f;
         
-        // Calcular velocidad según el estado (prioridad: agachado > apuntando > corriendo > caminando)
         if (isMoving)
         {
             if (isCrouching)
@@ -225,10 +214,8 @@ public class InputManager : MonoBehaviour
             currentMoveSpeed = 0f;
         }
         
-        // Reset del flag de disparo después de un breve delay
         if (justShot)
         {
-            // Permitir correr 0.3s después de disparar (cuando la animación termina)
             if (Time.time >= lastShootTime + SHOOT_ANIMATION_DURATION)
             {
                 justShot = false;
@@ -249,7 +236,6 @@ public class InputManager : MonoBehaviour
 
     void CaptureRotationInput()
     {
-        // Obtener sensibilidad de la cámara
         float sensitivity = cameraController != null ? cameraController.mouseSensitivity : 2f;
         float mouseInput = Input.GetAxis("Mouse X") * sensitivity;
         if (Mathf.Abs(mouseInput) > 0.001f)
@@ -257,13 +243,11 @@ public class InputManager : MonoBehaviour
             mouseX += mouseInput;
         }
 
-        // Always enforce rotation from mouseX so physics can't drift it
         playerTransform.rotation = Quaternion.Euler(0, mouseX, 0);
     }
 
     void CaptureCrouchInput()
     {
-        // Toggle crouch con Ctrl o C
         if (Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C))
         {
             isCrouching = !isCrouching;
@@ -274,12 +258,10 @@ public class InputManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            // Si está agachado, ponerse de pie sin saltar
             if (isCrouching)
             {
                 isCrouching = false;
             }
-            // Si está de pie, saltar normalmente
             else if (CanJump())
             {
                 PerformJump();
@@ -291,7 +273,6 @@ public class InputManager : MonoBehaviour
     {
         isAiming = Input.GetMouseButton(1);
         
-        // Informar al arma del estado de apuntado
         if (weaponController != null)
         {
             weaponController.SetAiming(isAiming);
@@ -302,7 +283,6 @@ public class InputManager : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0) && Time.time >= lastShootTime + shootCooldown)
         {
-            // Marcar que acabamos de disparar para cancelar el correr
             justShot = true;
             isRunning = false;
             
@@ -311,7 +291,6 @@ public class InputManager : MonoBehaviour
             lastShootTime = Time.time;
             shootBufferFrames = TRIGGER_BUFFER_DURATION;
             
-            // Reiniciar timer para mantener Upper Body Layer activo (extender si ya estaba activo)
             shootAnimationTimer = SHOOT_ANIMATION_DURATION;
             
             if (animator != null)
@@ -325,7 +304,6 @@ public class InputManager : MonoBehaviour
             }
         }
         
-        // Decrementar timer de animación de disparo
         if (shootAnimationTimer > 0)
         {
             shootAnimationTimer -= Time.deltaTime;
@@ -354,7 +332,6 @@ public class InputManager : MonoBehaviour
             animator.SetTrigger(HashJump);
         }
         
-        // Trigger camera shake en salto
         if (cameraController != null)
         {
             cameraController.TriggerJumpShake();
@@ -370,22 +347,18 @@ public class InputManager : MonoBehaviour
         wasGroundedLastFrame = isGrounded;
         float timeSinceJump = Time.time - lastJumpTime;
         
-        // No permitir detección de suelo inmediatamente después de saltar
         if (timeSinceJump < JUMP_GROUND_CHECK_DELAY)
         {
             isGrounded = false;
             return;
         }
 
-        // Usar raycast simple desde abajo del jugador
-        float rayLength = 0.8f; // Aumentado para pendientes pronunciadas
-        Vector3 rayOrigin = playerTransform.position + Vector3.up * 0.2f; // Origen más alto
+        float rayLength = 0.8f; 
+        Vector3 rayOrigin = playerTransform.position + Vector3.up * 0.2f;
         
-        // Hacer varios raycasts en un patrón para mejor detección en superficies irregulares
         bool hitGround = false;
         float minDistance = float.MaxValue;
         
-        // Raycast central
         if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, rayLength, groundLayers))
         {
             if (!hit.collider.transform.IsChildOf(playerTransform))
@@ -395,15 +368,13 @@ public class InputManager : MonoBehaviour
             }
         }
         
-        // Raycasts adicionales en patrón circular más denso para superficies irregulares
-        float offsetRadius = 0.3f; // Radio aumentado
+        float offsetRadius = 0.3f; 
         Vector3[] offsets = new Vector3[]
         {
             playerTransform.forward * offsetRadius,
             -playerTransform.forward * offsetRadius,
             playerTransform.right * offsetRadius,
             -playerTransform.right * offsetRadius,
-            // Diagonales para mejor cobertura
             (playerTransform.forward + playerTransform.right).normalized * offsetRadius,
             (playerTransform.forward - playerTransform.right).normalized * offsetRadius,
             (-playerTransform.forward + playerTransform.right).normalized * offsetRadius,
@@ -427,9 +398,8 @@ public class InputManager : MonoBehaviour
         {
             float verticalVelocity = rb.linearVelocity.y;
             
-            // Está en el suelo si está cerca Y no está subiendo rápido
-            bool isNearGround = minDistance < 0.6f; // Aumentado significativamente para pendientes
-            bool notMovingUpFast = verticalVelocity < 2f; // Más tolerante con velocidad vertical
+            bool isNearGround = minDistance < 0.6f; 
+            bool notMovingUpFast = verticalVelocity < 2f; 
             
             isGrounded = isNearGround && notMovingUpFast;
         }
@@ -448,10 +418,8 @@ public class InputManager : MonoBehaviour
 
         Gizmos.color = isGrounded ? Color.green : Color.red;
         
-        // Raycast central
         Gizmos.DrawRay(rayOrigin, Vector3.down * rayLength);
         
-        // Raycasts adicionales (8 en total)
         float offsetRadius = 0.3f;
         Vector3[] offsets = new Vector3[]
         {
@@ -489,8 +457,6 @@ public class InputManager : MonoBehaviour
         animator.SetBool(HashIsAiming, isAiming);
         animator.SetBool(HashIsCrouching, isCrouching);
         
-        // Controlar el peso de la Upper Body Layer (Layer 1)
-        // Activar cuando: está apuntando O acaba de disparar (timer activo)
         float targetWeight = (isAiming || shootAnimationTimer > 0) ? 1f : 0f;
         float currentWeight = animator.GetLayerWeight(1);
         float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * 10f);

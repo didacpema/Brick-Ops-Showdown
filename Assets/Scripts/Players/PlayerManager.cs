@@ -82,7 +82,6 @@ namespace BrickOps.Players
                 }
             }
 
-            // Spawn points por defecto si no hay configurados
             if (availableSpawnPoints.Count == 0)
             {
                 availableSpawnPoints.Add(new Vector3(-5, 1, 0));
@@ -96,9 +95,6 @@ namespace BrickOps.Players
         #endregion
 
         #region Local Player Management
-        /// <summary>
-        /// Crea el jugador local
-        /// </summary>
         public GameObject SpawnLocalPlayer(int playerId)
         {
             if (localPlayerObject != null)
@@ -140,9 +136,6 @@ namespace BrickOps.Players
         #endregion
 
         #region Remote Player Management
-        /// <summary>
-        /// Crea un jugador remoto
-        /// </summary>
         public GameObject SpawnRemotePlayer(int playerId, Vector3 position, float rotation)
         {
             if (remotePlayers.ContainsKey(playerId))
@@ -180,9 +173,6 @@ namespace BrickOps.Players
             return remotePlayer;
         }
 
-        /// <summary>
-        /// Elimina un jugador remoto
-        /// </summary>
         public void RemoveRemotePlayer(int playerId)
         {
             if (remotePlayers.TryGetValue(playerId, out GameObject player))
@@ -197,9 +187,6 @@ namespace BrickOps.Players
         #endregion
 
         #region State Management        
-        /// <summary>
-        /// Actualiza el estado de un jugador remoto
-        /// </summary>
         public void UpdatePlayerState(int playerId, PlayerState state)
         {
             if (playerId == localPlayerId)
@@ -207,13 +194,11 @@ namespace BrickOps.Players
 
             playerStates[playerId] = state;
 
-            // Crear jugador si no existe
             if (!remotePlayers.ContainsKey(playerId))
             {
                 SpawnRemotePlayer(playerId, state.GetPosition(), state.rotY);
             }
-            
-            // Aplicar animaciones al jugador remoto
+
             if (remotePlayers.TryGetValue(playerId, out GameObject player))
             {
                 RemotePlayerAnimator remoteAnimator = player.GetComponent<RemotePlayerAnimator>();
@@ -223,10 +208,6 @@ namespace BrickOps.Players
                 }
             }
         }
-
-        /// <summary>
-        /// Actualiza las posiciones de todos los jugadores remotos
-        /// </summary>
         public void UpdateRemotePlayers()
         {
             foreach (var kvp in playerStates)
@@ -238,7 +219,6 @@ namespace BrickOps.Players
                 {
                     if (player != null && player.activeSelf)
                     {
-                        // Interpolación suave
                         Vector3 targetPos = state.GetPosition();
                         Quaternion targetRot = Quaternion.Euler(0, state.rotY, 0);
 
@@ -260,9 +240,6 @@ namespace BrickOps.Players
         #endregion
 
         #region Spawn Position
-        /// <summary>
-        /// Obtiene una posición de spawn para un jugador
-        /// </summary>
         public Vector3 GetSpawnPosition(int playerId)
         {
             if (availableSpawnPoints.Count == 0)
@@ -274,9 +251,6 @@ namespace BrickOps.Players
         #endregion
 
         #region Utility Methods
-        /// <summary>
-        /// Obtiene el GameObject de un jugador por ID
-        /// </summary>
         public GameObject GetPlayer(int playerId)
         {
             if (playerId == localPlayerId)
@@ -286,17 +260,11 @@ namespace BrickOps.Players
             return player;
         }
 
-        /// <summary>
-        /// Verifica si un jugador existe
-        /// </summary>
         public bool PlayerExists(int playerId)
         {
             return playerId == localPlayerId || remotePlayers.ContainsKey(playerId);
         }
 
-        /// <summary>
-        /// Limpia todos los jugadores
-        /// </summary>
         public void ClearAllPlayers()
         {
             if (localPlayerObject != null)

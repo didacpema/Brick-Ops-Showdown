@@ -3,20 +3,17 @@ using UnityEngine;
 
 namespace BrickOps.Core
 {
-    /// <summary>
-    /// Estructura para sincronizar posición y rotación de objetos por red
-    /// Usado para objetos con animaciones como RotationAnimation
-    /// </summary>
+    /// Estructura para sincronizar posición y rotación de objetos
     [Serializable]
     public class ObjectTransformData
     {
-        public int objectId;       // ID único del objeto
-        public float posX;         // Posición X
-        public float posY;         // Posición Y
-        public float posZ;         // Posición Z
-        public float rotX;         // Rotación X (Euler)
-        public float rotY;         // Rotación Y (Euler)
-        public float rotZ;         // Rotación Z (Euler)
+        public int objectId;      
+        public float posX;         
+        public float posY;      
+        public float posZ;         
+        public float rotX;         
+        public float rotY;         
+        public float rotZ;         
 
         public ObjectTransformData() { }
 
