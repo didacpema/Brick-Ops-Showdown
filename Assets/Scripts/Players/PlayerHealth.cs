@@ -88,8 +88,13 @@ public class PlayerHealth : MonoBehaviour
         {
             healthBarCanvas.gameObject.SetActive(false);
         }
-        
+
         Debug.Log($"[PlayerHealth] Inicializado - ID: {playerId}, Local: {isLocal}");
+        
+        if (isLocal)
+        {
+            NotifyHealthChanged();
+        }
     }
 
     public void TakeDamage(float damage, int attackerId)

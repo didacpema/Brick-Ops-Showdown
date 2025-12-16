@@ -6,19 +6,28 @@ using BrickOps.Players;
 
 namespace BrickOps.UI
 {
-    /// <summary>
-    /// Gestiona toda la UI del juego
-    /// </summary>
     public class UIManager : MonoBehaviour
     {
         public static UIManager Instance { get; private set; }
 
         #region Inspector Variables
-        [Header("HUD")]
-        public TMP_Text playerInfoText;
+        [Header("--- Textos Principales")]
+        [Tooltip("Texto de ID y Conexión (F1)")]
+        public TMP_Text statusText; 
+
+        [Tooltip("Texto de Vida (HUD Combate)")]
         public TMP_Text healthText;
+        [Tooltip("Texto de Munición (HUD Combate)")]
         public TMP_Text ammoText;
-        public TMP_Text fpsText;
+
+        [Tooltip("Texto de Red y FPS")]
+        public TMP_Text networkText;
+        
+        [Tooltip("Texto de Posición")]
+        public TMP_Text positionText;
+
+        [Tooltip("Texto de Ayuda")]
+        public TMP_Text helpText;
 
         [Header("Kill Feed")]
         public TMP_Text killFeedText;
@@ -31,7 +40,10 @@ namespace BrickOps.UI
 
         [Header("Debug")]
         public TMP_Text debugInfoText;
-        public bool showDebugInfo = false;
+
+        [Header("Debug Visuals")]
+        [Tooltip("Script que renderiza los colliders (Arrastrar aquí)")]
+        public MonoBehaviour colliderVisualizer;
         #endregion
 
         #region Private Variables
@@ -40,8 +52,8 @@ namespace BrickOps.UI
         private int frameCount = 0;
         private float fps = 0f;
         private float lastNetUpdateTime = 0f;
-        private float netUpdateInterval = 1f; 
-        private string cachedNetLine = "NET: N/A";
+        private float netUpdateInterval = 1f;
+        private string cachedNetLine = "Calculando...";
         private int smoothedPing = -1;
         #endregion
 
@@ -50,332 +62,248 @@ namespace BrickOps.UI
         {
             public string message;
             public float timestamp;
-
-            public KillFeedEntry(string msg)
-            {
-                message = msg;
-                timestamp = Time.time;
-            }
-
-            public bool IsExpired(float duration)
-            {
-                return Time.time - timestamp > duration;
-            }
+            public KillFeedEntry(string msg) { message = msg; timestamp = Time.time; }
+            public bool IsExpired(float duration) => Time.time - timestamp > duration;
         }
         #endregion
 
-        #region Unity Lifecycle
         void Awake()
         {
-            if (Instance == null)
-            {
-                Instance = this;
-            }
-            else
-            {
-                Destroy(gameObject);
-            }
+            if (Instance == null) Instance = this;
+            else Destroy(gameObject);
         }
 
-        void Start()
+void Start()
         {
             SetupEventListeners();
             InitializeUI();
+
+            SetTextVisibility(helpText, false);      
+            SetTextVisibility(statusText, true);     
+            SetTextVisibility(networkText, false);   
+            SetTextVisibility(positionText, false);  
+    
+            SetTextVisibility(healthText, true);
+            SetTextVisibility(ammoText, true);
+
+            if (colliderVisualizer != null) colliderVisualizer.enabled = false;
         }
 
         void Update()
         {
-            UpdateFPS();
-            UpdateKillFeed();
-            UpdatePlayerInfo();
-            
-            if (showDebugInfo)
-            {
-                UpdateDebugInfo();
-            }
+            if (Input.GetKeyDown(KeyCode.F1)) ToggleTextVisibility(statusText);
+            if (Input.GetKeyDown(KeyCode.F2)) ToggleTextVisibility(positionText);
+            if (Input.GetKeyDown(KeyCode.F3)) ToggleTextVisibility(helpText);
+            if (Input.GetKeyDown(KeyCode.F4)) ToggleTextVisibility(networkText);
+            if (Input.GetKeyDown(KeyCode.F6))
+                {
+                    BrickOps.Utils.ColliderVisualizer.ShowGizmos = !BrickOps.Utils.ColliderVisualizer.ShowGizmos;
+                    
+                    Debug.Log($"Colliders: {(BrickOps.Utils.ColliderVisualizer.ShowGizmos ? "ON" : "OFF")}");
+                }
 
-            if (Input.GetKeyDown(KeyCode.Tab))
-            {
-                ToggleScoreboard(true);
-            }
-            else if (Input.GetKeyUp(KeyCode.Tab))
-            {
-                ToggleScoreboard(false);
-            }
+            if (networkText != null && networkText.gameObject.activeSelf) UpdateNetworkAndFPS();
+            
+            UpdateKillFeed();
+            UpdateDynamicText();
+
+            if (Input.GetKeyDown(KeyCode.Tab)) ToggleScoreboard(true);
+            else if (Input.GetKeyUp(KeyCode.Tab)) ToggleScoreboard(false);
         }
 
         void OnDestroy()
         {
-            if (Instance == this)
-            {
-                RemoveEventListeners();
-                Instance = null;
-            }
+            if (Instance == this) RemoveEventListeners();
+        }
+
+        #region UI Logic & Toggles
+        public void ToggleTextVisibility(TMP_Text textComponent)
+        {
+            if (textComponent != null) 
+                textComponent.gameObject.SetActive(!textComponent.gameObject.activeSelf);
+        }
+
+        public void SetTextVisibility(TMP_Text textComponent, bool visible)
+        {
+            if (textComponent != null) 
+                textComponent.gameObject.SetActive(visible);
+        }
+
+        void InitializeUI()
+        {
+            if (killFeedText != null) killFeedText.text = "";
+            if (scoreboardPanel != null) scoreboardPanel.SetActive(false);
+            if (helpText != null) 
+                helpText.text = "F1: Ayuda | F2: ID | F3: Red | F4: Pos | F5: HUD\nTAB: Scoreboard | ESC: Menú | F6: Colliders";
         }
         #endregion
 
-        #region Initialization
-        void InitializeUI()
+        #region Text Updates
+        void UpdateDynamicText()
         {
-            if (killFeedText != null)
+            if (PlayerManager.Instance == null) return;
+            
+            if (IsVisible(statusText))
             {
-                killFeedText.text = "";
+                int playerId = PlayerManager.Instance.LocalPlayerId;
+                int otherPlayers = PlayerManager.Instance.RemotePlayerCount;
+                string connectionStatus = otherPlayers > 0 ? $"ONLINE ({otherPlayers + 1})" : "SOLO";
+                
+                statusText.text = $"ID: {playerId} | {connectionStatus}";
+            }
+            if (IsVisible(positionText))
+            {
+                GameObject localPlayer = PlayerManager.Instance.LocalPlayer;
+                if (localPlayer != null)
+                {
+                    Vector3 pos = localPlayer.transform.position;
+                    positionText.text = $"{pos.x:F0}, {pos.y:F0}, {pos.z:F0}";
+                }
+            }
+            if (IsVisible(networkText))
+            {
+                networkText.text = cachedNetLine;
             }
 
-            if (scoreboardPanel != null)
+            if (IsVisible(healthText))
             {
-                scoreboardPanel.SetActive(false);
+                GameObject localPlayer = PlayerManager.Instance.LocalPlayer;
+                if (localPlayer != null)
+                {
+                    // Obtenemos el componente PlayerHealth (es rápido, pero podrías cachearlo si quieres optimizar al máximo)
+                    PlayerHealth pHealth = localPlayer.GetComponent<PlayerHealth>();
+                    
+                    if (pHealth != null)
+                    {
+                        float pct = pHealth.GetHealthPercentage() * 100f;
+                        healthText.text = $"{pct:F0}%";
+                        
+                        // Lógica de color
+                        healthText.color = pct > 60f ? Color.green : (pct > 30f ? Color.yellow : Color.red);
+                    }
+                }
             }
-
-            if (fpsText != null)
-            {
-                fpsText.gameObject.SetActive(true);
-            }
-
-            if (debugInfoText != null)
-            {
-                debugInfoText.gameObject.SetActive(showDebugInfo);
-            }
-
-            Debug.Log("[UIManager] Initialized");
         }
 
+        bool IsVisible(TMP_Text text)
+        {
+            return text != null && text.gameObject.activeSelf;
+        }
+
+        void UpdateNetworkAndFPS()
+        {
+            frameCount++;
+            if (Time.time - lastFPSUpdate >= 0.5f)
+            {
+                fps = frameCount / (Time.time - lastFPSUpdate);
+                frameCount = 0;
+                lastFPSUpdate = Time.time;
+            }
+
+            if (GameController.Instance != null && Time.time - lastNetUpdateTime >= netUpdateInterval)
+            {
+                GameController.Instance.GetNetworkStats(out int pingMs, out int sent, out int recv, out float pps);
+                
+                if (pingMs >= 0)
+                    smoothedPing = smoothedPing < 0 ? pingMs : Mathf.RoundToInt(Mathf.Lerp(smoothedPing, pingMs, 0.3f));
+                
+                string pingStr = smoothedPing < 0 ? "--" : $"{smoothedPing}";
+
+                string fpsColor = fps >= 60 ? "green" : (fps >= 30 ? "yellow" : "red");
+                
+                cachedNetLine = $"FPS: <color={fpsColor}>{fps:F0}</color>\n" +
+                                $"PING: {pingStr}ms\n" +
+                                $"UP: {sent} | DW: {recv}";
+                                
+                lastNetUpdateTime = Time.time;
+            }
+        }
+
+        void UpdateHealth(int playerId, float currentHealth, float maxHealth)
+        {
+            if (healthText == null || playerId != PlayerManager.Instance?.LocalPlayerId) return;
+
+            float percentage = (currentHealth / maxHealth) * 100f;
+            healthText.text = $"{percentage:F0}%";
+            healthText.color = percentage > 60f ? Color.green : (percentage > 30f ? Color.yellow : Color.red);
+        }
+
+        public void UpdateAmmo(int current, int max)
+        {
+            if (ammoText != null) 
+                ammoText.text = $"{current}/{max}";
+        }
+        #endregion
+
+        #region Events & KillFeed (Sin cambios)
         void SetupEventListeners()
         {
-            if (EventManager.Instance == null)
-                return;
-
+            if (EventManager.Instance == null) return;
             EventManager.Instance.OnKillFeedMessage += AddKillFeedMessage;
             EventManager.Instance.OnPlayerHealthChanged += UpdateHealth;
         }
 
         void RemoveEventListeners()
         {
-            if (EventManager.Instance == null)
-                return;
-
+            if (EventManager.Instance == null) return;
             EventManager.Instance.OnKillFeedMessage -= AddKillFeedMessage;
             EventManager.Instance.OnPlayerHealthChanged -= UpdateHealth;
         }
-        #endregion
 
-        #region Player Info
-        void UpdatePlayerInfo()
-        {
-            if (playerInfoText == null || PlayerManager.Instance == null)
-                return;
-
-            int playerId = PlayerManager.Instance.LocalPlayerId;
-            int otherPlayers = PlayerManager.Instance.RemotePlayerCount;
-            
-            GameObject localPlayer = PlayerManager.Instance.LocalPlayer;
-            if (localPlayer == null)
-                return;
-
-            Vector3 pos = localPlayer.transform.position;
-            string status = otherPlayers > 0 ? $"CONNECTED ({otherPlayers} other)" : "SOLO";
-
-            if (GameController.Instance != null && Time.time - lastNetUpdateTime >= netUpdateInterval)
-            {
-                GameController.Instance.GetNetworkStats(out int pingMs, out int sent, out int recv, out float pps);
-                if (pingMs >= 0)
-                {
-                    if (smoothedPing < 0)
-                        smoothedPing = pingMs;
-                    else
-                        smoothedPing = Mathf.RoundToInt(Mathf.Lerp(smoothedPing, pingMs, 0.3f));
-                }
-                else
-                {
-                    smoothedPing = -1;
-                }
-                string pingStr = smoothedPing < 0 ? "N/A" : $"{smoothedPing}ms";
-                cachedNetLine = $"NET: ping {pingStr} | {sent}/{recv} pkts | {pps:F1} pps";
-                lastNetUpdateTime = Time.time;
-            }
-
-            playerInfoText.text = $"Player {playerId} [{status}]\n" +
-                                 $"Pos: ({pos.x:F1}, {pos.y:F1}, {pos.z:F1})\n" +
-                                 cachedNetLine + "\n\n" +
-                                 "WASD: Move | Mouse: Look | Click: Shoot\n" +
-                                 "Space: Jump | Tab: Scoreboard | ESC: Exit";
-        }
-
-        void UpdateHealth(int playerId, float currentHealth, float maxHealth)
-        {
-            if (healthText == null || playerId != PlayerManager.Instance?.LocalPlayerId)
-                return;
-
-            float percentage = (currentHealth / maxHealth) * 100f;
-            healthText.text = $"HP: {percentage:F0}%";
-
-            if (percentage > 60f)
-                healthText.color = Color.green;
-            else if (percentage > 30f)
-                healthText.color = Color.yellow;
-            else
-                healthText.color = Color.red;
-        }
-        #endregion
-
-        #region Kill Feed
         void AddKillFeedMessage(string message)
         {
             killFeedEntries.Add(new KillFeedEntry(message));
-            
-            while (killFeedEntries.Count > maxKillFeedLines)
-            {
-                killFeedEntries.RemoveAt(0);
-            }
-
+            while (killFeedEntries.Count > maxKillFeedLines) killFeedEntries.RemoveAt(0);
             UpdateKillFeedDisplay();
         }
 
         void UpdateKillFeed()
         {
-            killFeedEntries.RemoveAll(entry => entry.IsExpired(killFeedDuration));
-
-            if (killFeedEntries.Count == 0 && !string.IsNullOrEmpty(killFeedText?.text))
+            if (killFeedEntries.Count > 0)
             {
+                killFeedEntries.RemoveAll(entry => entry.IsExpired(killFeedDuration));
                 UpdateKillFeedDisplay();
             }
         }
 
         void UpdateKillFeedDisplay()
         {
-            if (killFeedText == null)
-                return;
-
-            if (killFeedEntries.Count == 0)
-            {
-                killFeedText.text = "";
-                return;
-            }
-
-            string[] messages = new string[killFeedEntries.Count];
-            for (int i = 0; i < killFeedEntries.Count; i++)
-            {
-                messages[i] = killFeedEntries[i].message;
-            }
-
-            killFeedText.text = string.Join("\n", messages);
+            if (killFeedText == null) return;
+            string content = "";
+            foreach (var entry in killFeedEntries) content += entry.message + "\n";
+            killFeedText.text = content;
         }
-        #endregion
-
-        #region Scoreboard
+        
         void ToggleScoreboard(bool show)
         {
-            if (scoreboardPanel == null)
-                return;
-
-            scoreboardPanel.SetActive(show);
-
-            if (show)
-            {
-                UpdateScoreboard();
-            }
+            if (scoreboardPanel != null) scoreboardPanel.SetActive(show);
+            if (show) UpdateScoreboard();
         }
 
         void UpdateScoreboard()
         {
-            if (scoreboardText == null || PlayerManager.Instance == null)
-                return;
-
-            string content = "=== SCOREBOARD ===\n\n";
+            if (scoreboardText == null || PlayerManager.Instance == null) return;
+            string content = "<size=110%>SCOREBOARD</size>\n\n";
             
-            int localId = PlayerManager.Instance.LocalPlayerId;
             GameObject localPlayer = PlayerManager.Instance.LocalPlayer;
-            
             if (localPlayer != null)
             {
-                PlayerHealth health = localPlayer.GetComponent<PlayerHealth>();
-                float hp = health != null ? (health.GetHealthPercentage() * 100f) : 100f;
-                
-                content += $"[YOU] Player {localId} - HP: {hp:F0}%\n";
+                float hp = localPlayer.GetComponent<PlayerHealth>()?.GetHealthPercentage() * 100f ?? 0;
+                content += $"YOU (ID {PlayerManager.Instance.LocalPlayerId}) - {hp:F0}%\n";
             }
 
             foreach (var kvp in PlayerManager.Instance.RemotePlayers)
             {
-                int playerId = kvp.Key;
-                GameObject player = kvp.Value;
-
-                if (player != null && player.activeSelf)
+                if (kvp.Value != null)
                 {
-                    PlayerHealth health = player.GetComponent<PlayerHealth>();
-                    float hp = health != null ? (health.GetHealthPercentage() * 100f) : 100f;
-                    
-                    content += $"Player {playerId} - HP: {hp:F0}%\n";
-                }
-                else
-                {
-                    content += $"Player {playerId} - DEAD\n";
+                     float hp = kvp.Value.GetComponent<PlayerHealth>()?.GetHealthPercentage() * 100f ?? 0;
+                     content += $"P{kvp.Key} - {hp:F0}%\n";
                 }
             }
-
             scoreboardText.text = content;
         }
-        #endregion
 
-        #region FPS Counter
-        void UpdateFPS()
-        {
-            if (fpsText == null)
-                return;
-
-            frameCount++;
-            
-            if (Time.time - lastFPSUpdate >= 0.5f)
-            {
-                fps = frameCount / (Time.time - lastFPSUpdate);
-                frameCount = 0;
-                lastFPSUpdate = Time.time;
-
-                fpsText.text = $"FPS: {fps:F0}";
-
-                if (fps >= 60f)
-                    fpsText.color = Color.green;
-                else if (fps >= 30f)
-                    fpsText.color = Color.yellow;
-                else
-                    fpsText.color = Color.red;
-            }
-        }
-        #endregion
-
-        #region Debug Info
-        void UpdateDebugInfo()
-        {
-            if (debugInfoText == null || GameController.Instance == null)
-                return;
-
-            string info = GameController.Instance.GetDebugInfo();
-            debugInfoText.text = $"[DEBUG]\n{info}";
-        }
-
-        public void ToggleDebugInfo()
-        {
-            showDebugInfo = !showDebugInfo;
-            
-            if (debugInfoText != null)
-            {
-                debugInfoText.gameObject.SetActive(showDebugInfo);
-            }
-        }
-        #endregion
-
-        #region Public API
-        public void ShowNotification(string message, float duration = 3f)
-        {
-            Debug.Log($"[Notification] {message}");
-        }
-
-        public void UpdateAmmo(int current, int max)
-        {
-            if (ammoText != null)
-            {
-                ammoText.text = $"Ammo: {current}/{max}";
-            }
-        }
+        public void ShowNotification(string message, float duration = 3f) { Debug.Log($"[Notif] {message}"); }
         #endregion
     }
 }
