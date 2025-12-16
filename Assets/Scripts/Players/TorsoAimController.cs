@@ -62,6 +62,19 @@ namespace BrickOps.Players
             playerRootTransform = transform;
         }
 
+        // VALIDACIÓN: Advertir si el torso tiene componentes físicos que puedan interferir
+        Rigidbody torsoRb = torsoTransform.GetComponent<Rigidbody>();
+        Collider torsoCol = torsoTransform.GetComponent<Collider>();
+        
+        if (torsoRb != null)
+        {
+            Debug.LogError("[TorsoAimController] ¡TORSO TIENE RIGIDBODY! Esto causará interferencias. Elimínalo del GameObject TorsoI.");
+        }
+        if (torsoCol != null)
+        {
+            Debug.LogError("[TorsoAimController] ¡TORSO TIENE COLLIDER! Esto causará interferencias. Elimínalo del GameObject TorsoI.");
+        }
+
         cameraController = GetComponentInChildren<CameraController>();
         if (cameraController == null)
         {

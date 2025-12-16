@@ -47,6 +47,25 @@ public class WeaponController : MonoBehaviour
     [Tooltip("Dispersión al disparar saltando/en el aire")]
     public float jumpingSpread = 0.1f;
     
+    [Header("Ammo System")]
+    [Tooltip("Munición actual en el cargador")]
+    public int currentAmmo = 30;
+    
+    [Tooltip("Tamaño máximo del cargador")]
+    public int maxMagazineSize = 30;
+    
+    [Tooltip("Munición de reserva actual")]
+    public int reserveAmmo = 90;
+    
+    [Tooltip("Munición de reserva máxima")]
+    public int maxReserveAmmo = 120;
+    
+    [Tooltip("Tiempo de recarga en segundos")]
+    public float reloadTime = 2f;
+    
+    [Tooltip("Si es true, al recargar se pierde la munición restante del cargador")]
+    public bool loseAmmoOnReload = false;
+    
     [Header("Aim Pointer Settings")]
     [Tooltip("Distancia por defecto del puntero si no hay obstáculos")]
     public float defaultPointerDistance = 50f;
@@ -91,7 +110,14 @@ public class WeaponController : MonoBehaviour
     private bool isMoving = false;
     private bool isRunning = false;
     private bool isGrounded = true;
-    private Vector3 lastTargetPosition; 
+    private Vector3 lastTargetPosition;
+    
+    // Ammo System
+    private bool isReloading = false;
+    private float reloadStartTime = 0f;
+    private Animator playerAnimator;
+    private InputManager inputManager;
+    private static readonly int HashReload = Animator.StringToHash("Reload");
     #endregion
 
     #region Unity Lifecycle
@@ -105,6 +131,10 @@ public class WeaponController : MonoBehaviour
         audioSource.spatialBlend = 1f; 
         
         playerHealth = GetComponent<PlayerHealth>();
+        
+        // Buscar Animator y InputManager para el sistema de recarga
+        playerAnimator = GetComponentInParent<Animator>();
+        inputManager = GetComponentInParent<InputManager>();
     }
 
     void Start()
@@ -129,6 +159,12 @@ public class WeaponController : MonoBehaviour
         if (isLocalPlayer && aimPointer != null && playerCamera != null)
         {
             UpdateAimPointerPosition();
+        }
+        
+        // Monitorear recarga
+        if (isReloading)
+        {
+            UpdateReload();
         }
     }
     #endregion
@@ -160,7 +196,22 @@ public class WeaponController : MonoBehaviour
     {
         if (!isLocalPlayer) return;
         
-        if (Time.time >= nextFireTime)
+        // No se puede disparar mientras se recarga
+        if (isReloading)
+        {
+            CancelReload();
+            return;
+        }
+        
+        // PRIORIDAD: Si no hay munición, NO DISPARAR - solo intentar recargar
+        if (currentAmmo <= 0)
+        {
+            TryReload();
+            return; // IMPORTANTE: No continuar con el disparo
+        }
+        
+        // Solo disparar si hay munición Y ha pasado el cooldown
+        if (Time.time >= nextFireTime && currentAmmo > 0)
         {
             Shoot();
             nextFireTime = Time.time + fireRate;
@@ -187,6 +238,17 @@ public class WeaponController : MonoBehaviour
     void Shoot()
     {
         if (muzzlePoint == null) return;
+        
+        // Verificar munición (seguridad adicional) - NO DISPARAR SI NO HAY
+        if (currentAmmo <= 0)
+        {
+            // No consumir munición ni hacer nada, solo intentar recargar
+            TryReload();
+            return;
+        }
+        
+        // Consumir munición ANTES de disparar
+        currentAmmo--;
 
         Vector3 shootDirection = GetShootDirection();
         RaycastHit hit;        bool didHit = Physics.Raycast(
@@ -366,6 +428,144 @@ public class WeaponController : MonoBehaviour
         }
         
         return aimPointer.position;
+    }
+    #endregion
+
+    #region Ammo System
+    /// <summary>
+    /// Intenta recargar el arma
+    /// </summary>
+    public void TryReload()
+    {
+        if (!isLocalPlayer) return;
+        
+        // No se puede recargar si ya está recargando
+        if (isReloading) return;
+        
+        // No se puede recargar si el cargador está lleno
+        if (currentAmmo >= maxMagazineSize) return;
+        
+        // No se puede recargar si no hay munición de reserva
+        if (reserveAmmo <= 0) return;
+        
+        // Iniciar recarga
+        StartReload();
+    }
+    
+    /// <summary>
+    /// Inicia el proceso de recarga
+    /// </summary>
+    void StartReload()
+    {
+        isReloading = true;
+        reloadStartTime = Time.time;
+        
+        // Activar animación de recarga
+        if (playerAnimator != null)
+        {
+            playerAnimator.SetTrigger(HashReload);
+        }
+        
+        Debug.Log($"[WeaponController] Recarga iniciada. Munición: {currentAmmo}/{maxMagazineSize} | Reserva: {reserveAmmo}");
+    }
+    
+    /// <summary>
+    /// Actualiza el estado de la recarga cada frame
+    /// </summary>
+    void UpdateReload()
+    {
+        float elapsedTime = Time.time - reloadStartTime;
+        
+        if (elapsedTime >= reloadTime)
+        {
+            CompleteReload();
+        }
+    }
+    
+    /// <summary>
+    /// Completa la recarga y rellena el cargador
+    /// </summary>
+    void CompleteReload()
+    {
+        if (!isReloading) return;
+        
+        int ammoNeeded = maxMagazineSize - currentAmmo;
+        
+        if (loseAmmoOnReload)
+        {
+            // Modo realista: se pierde la munición del cargador actual
+            ammoNeeded = maxMagazineSize;
+            currentAmmo = 0;
+        }
+        
+        int ammoToReload = Mathf.Min(ammoNeeded, reserveAmmo);
+        
+        currentAmmo += ammoToReload;
+        reserveAmmo -= ammoToReload;
+        
+        isReloading = false;
+        
+        Debug.Log($"[WeaponController] Recarga completada. Munición: {currentAmmo}/{maxMagazineSize} | Reserva: {reserveAmmo}");
+    }
+    
+    /// <summary>
+    /// Cancela la recarga en progreso
+    /// </summary>
+    public void CancelReload()
+    {
+        if (!isReloading) return;
+        
+        isReloading = false;
+        
+        // Resetear animación (esto depende de cómo esté configurado tu Animator)
+        if (playerAnimator != null)
+        {
+            playerAnimator.ResetTrigger(HashReload);
+        }
+        
+        Debug.Log("[WeaponController] Recarga cancelada");
+    }
+    
+    /// <summary>
+    /// Añade munición de reserva (para pickups)
+    /// </summary>
+    public void AddReserveAmmo(int amount)
+    {
+        reserveAmmo = Mathf.Min(reserveAmmo + amount, maxReserveAmmo);
+        Debug.Log($"[WeaponController] Munición añadida. Reserva: {reserveAmmo}/{maxReserveAmmo}");
+    }
+    
+    /// <summary>
+    /// Verifica si está recargando
+    /// </summary>
+    public bool IsReloading()
+    {
+        return isReloading;
+    }
+    
+    /// <summary>
+    /// Obtiene la munición actual
+    /// </summary>
+    public int GetCurrentAmmo()
+    {
+        return currentAmmo;
+    }
+    
+    /// <summary>
+    /// Obtiene la munición de reserva
+    /// </summary>
+    public int GetReserveAmmo()
+    {
+        return reserveAmmo;
+    }
+    
+    /// <summary>
+    /// Obtiene el progreso de recarga (0-1)
+    /// </summary>
+    public float GetReloadProgress()
+    {
+        if (!isReloading) return 0f;
+        return Mathf.Clamp01((Time.time - reloadStartTime) / reloadTime);
     }
     #endregion
 

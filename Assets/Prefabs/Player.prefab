@@ -157,7 +157,7 @@ CapsuleCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.5
   m_Height: 1.682575
@@ -222,19 +222,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5ae314947bf3a524a9dd790fa039b180, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  muzzlePoint: {fileID: 4742928036548140282}
-  playerCamera: {fileID: 55940840267700104}
-  aimPointer: {fileID: 7268809011961152946}
+  muzzlePoint: {fileID: 0}
+  playerCamera: {fileID: 0}
+  aimPointer: {fileID: 0}
   bodyDamage: 25
   headDamage: 75
   range: 100
   fireRate: 0.15
-  standingSpread: 0.02
+  standingSpread: 0.05
   standingAimSpread: 0.005
-  walkingSpread: 0.04
-  walkingAimSpread: 0.015
-  runningSpread: 0.08
+  walkingSpread: 0.1
+  walkingAimSpread: 0.075
+  runningSpread: 0.15
   jumpingSpread: 0.1
+  currentAmmo: 0
+  maxMagazineSize: 20
+  reserveAmmo: 0
+  maxReserveAmmo: 120
+  reloadTime: 2
+  loseAmmoOnReload: 0
   defaultPointerDistance: 50
   minTargetDistance: 4
   targetSmoothSpeed: 300
@@ -1406,7 +1412,7 @@ CapsuleCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
@@ -2798,7 +2804,7 @@ CapsuleCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2

@@ -135,8 +135,21 @@ public class InputManager : MonoBehaviour
     {
         if (!isInitialized) return;
 
+        UpdateGroundStatus();
+        
         if (shootBufferFrames > 0) shootBufferFrames--;
-        if (jumpBufferFrames > 0) jumpBufferFrames--;        UpdateGroundStatus();
+        
+        // Ejecutar salto si hay frames en el buffer Y está en el suelo
+        if (jumpBufferFrames > 0)
+        {
+            jumpBufferFrames--;
+            if (CanJump())
+            {
+                PerformJump();
+                jumpBufferFrames = 0; // Limpiar buffer después de saltar
+            }
+        }
+        
         ProcessInput();
         UpdateAnimations();
         
@@ -165,6 +178,7 @@ public class InputManager : MonoBehaviour
         CaptureJumpInput();
         CaptureAimingInput();
         CaptureShootingInput();
+        CaptureReloadInput();
     }
 
     void CaptureMovementInput()
@@ -186,7 +200,14 @@ public class InputManager : MonoBehaviour
             isCrouching = false;
         }
 
-        bool canRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isAiming && !justShot && !isCrouching;
+        // Si intenta correr mientras recarga, cancelar recarga automáticamente
+        bool wantsToRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isCrouching;
+        if (wantsToRun && weaponController != null && weaponController.IsReloading())
+        {
+            weaponController.CancelReload();
+        }
+        
+        bool canRun = wantsToRun && !isAiming && !justShot;
         isRunning = canRun;
         isMoving = moveDirection.sqrMagnitude > 0.01f;
         
@@ -258,19 +279,27 @@ public class InputManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
+            // Si intenta saltar mientras recarga, cancelar recarga
+            if (weaponController != null && weaponController.IsReloading())
+            {
+                weaponController.CancelReload();
+                // NO hacer return - continuar con el salto
+            }
+            
             if (isCrouching)
             {
                 isCrouching = false;
             }
             else if (CanJump())
             {
-                PerformJump();
+                jumpBufferFrames = TRIGGER_BUFFER_DURATION;
             }
         }
     }
 
     void CaptureAimingInput()
     {
+        // Permitir apuntar mientras se recarga
         isAiming = Input.GetMouseButton(1);
         
         if (weaponController != null)
@@ -283,30 +312,47 @@ public class InputManager : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0) && Time.time >= lastShootTime + shootCooldown)
         {
-            justShot = true;
-            isRunning = false;
+            // Verificar que no esté recargando y que tenga munición antes de ejecutar animaciones
+            bool canShoot = !weaponController.IsReloading() && weaponController.GetCurrentAmmo() > 0;
             
+            // TryShoot maneja toda la lógica (incluyendo recarga si no hay munición)
             weaponController.TryShoot();
-            currentShootCount++;
-            lastShootTime = Time.time;
-            shootBufferFrames = TRIGGER_BUFFER_DURATION;
             
-            shootAnimationTimer = SHOOT_ANIMATION_DURATION;
-            
-            if (animator != null)
+            // Solo ejecutar efectos visuales/sonoros si realmente puede disparar
+            if (canShoot)
             {
-                animator.SetTrigger(HashShoot);
-            }
+                justShot = true;
+                isRunning = false;
+                currentShootCount++;
+                lastShootTime = Time.time;
+                shootBufferFrames = TRIGGER_BUFFER_DURATION;
+                shootAnimationTimer = SHOOT_ANIMATION_DURATION;
+                
+                if (animator != null)
+                {
+                    animator.SetTrigger(HashShoot);
+                }
 
-            if (cameraController != null)
-            {
-                cameraController.TriggerShootShake();
+                if (cameraController != null)
+                {
+                    cameraController.TriggerShootShake();
+                }
             }
         }
         
         if (shootAnimationTimer > 0)
         {
             shootAnimationTimer -= Time.deltaTime;
+        }
+    }
+    
+    void CaptureReloadInput()
+    {
+        if (weaponController == null) return;
+        
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            weaponController.TryReload();
         }
     }
     #endregion
@@ -457,9 +503,14 @@ public class InputManager : MonoBehaviour
         animator.SetBool(HashIsAiming, isAiming);
         animator.SetBool(HashIsCrouching, isCrouching);
         
-        float targetWeight = (isAiming || shootAnimationTimer > 0) ? 1f : 0f;
+        // Activar Upper Body Layer cuando: apunta, dispara o recarga
+        bool isReloading = weaponController != null && weaponController.IsReloading();
+        float targetWeight = (isAiming || shootAnimationTimer > 0 || isReloading) ? 1f : 0f;
         float currentWeight = animator.GetLayerWeight(1);
-        float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * 10f);
+        
+        // Usar velocidad diferente según si está entrando (blend in) o saliendo (blend out)
+        float blendSpeed = targetWeight > currentWeight ? 10f : 3f; // blend in rápido, blend out suave
+        float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * blendSpeed);
         animator.SetLayerWeight(1, newWeight);
     }
     #endregion
@@ -470,7 +521,16 @@ public class InputManager : MonoBehaviour
     public bool IsRunning() => isRunning;
     public bool IsAiming() => isAiming;
     public bool IsCrouching() => isCrouching;
+    public bool IsShootAnimationActive() => shootAnimationTimer > 0;
     public float GetCurrentSpeed() => currentMoveSpeed;
+    
+    /// <summary>
+    /// Fuerza la salida del modo apuntar (usado por WeaponController al recargar)
+    /// </summary>
+    public void ForceStopAiming()
+    {
+        isAiming = false;
+    }
 
     public void ResetMouseRotation()
     {
@@ -490,6 +550,8 @@ public class InputManager : MonoBehaviour
     {
         if (playerTransform == null) return null;
 
+        bool isReloading = weaponController != null && weaponController.IsReloading();
+
         return new PlayerState(
             playerId,
             playerTransform.position,
@@ -499,6 +561,7 @@ public class InputManager : MonoBehaviour
             isAiming,
             isCrouching,
             isGrounded,
+            isReloading,
             currentShootCount,
             currentJumpCount
         );

@@ -18,6 +18,7 @@ namespace BrickOps.Core
         public bool isAiming;
         public bool isCrouching;
         public bool isGrounded;
+        public bool isReloading;
         public int shootCount;
         public int jumpCount;
 
@@ -38,12 +39,13 @@ namespace BrickOps.Core
             isAiming = false;
             isCrouching = false;
             isGrounded = true;
+            isReloading = false;
             shootCount = 0;
             jumpCount = 0;
         }
 
         // Constructor completo con datos de animación
-        public PlayerState(int id, Vector3 pos, float rotation, bool walking, bool running, bool aiming, bool crouching, bool grounded, int sCount, int jCount)
+        public PlayerState(int id, Vector3 pos, float rotation, bool walking, bool running, bool aiming, bool crouching, bool grounded, bool reloading, int sCount, int jCount)
         {
             playerId = id;
             posX = pos.x;
@@ -55,6 +57,7 @@ namespace BrickOps.Core
             isAiming = aiming;
             isCrouching = crouching;
             isGrounded = grounded;
+            isReloading = reloading;
             shootCount = sCount;
             jumpCount = jCount;
         }

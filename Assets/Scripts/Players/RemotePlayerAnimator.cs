@@ -15,6 +15,7 @@ namespace BrickOps.Players
         private bool lastAiming = false;
         private bool lastCrouching = false;
         private bool lastGrounded = true;
+        private bool lastReloading = false;
         private int lastShootCount = -1;
         private int lastJumpCount = -1;
 
@@ -30,6 +31,7 @@ namespace BrickOps.Players
         private static readonly int HashIsGrounded = Animator.StringToHash("IsGrounded");
         private static readonly int HashJump = Animator.StringToHash("Jump");
         private static readonly int HashShoot = Animator.StringToHash("Shoot");
+        private static readonly int HashReload = Animator.StringToHash("Reload");
 
         [Header("Debug")]
         [Tooltip("Mostrar logs de sincronización")]
@@ -98,6 +100,18 @@ namespace BrickOps.Players
                 lastGrounded = state.isGrounded;
             }
 
+            if (state.isReloading != lastReloading)
+            {
+                if (state.isReloading)
+                {
+                    animator.SetTrigger(HashReload);
+                    
+                    if (showDebug)
+                        Debug.Log($"[RemotePlayerAnimator] Reload triggered!");
+                }
+                lastReloading = state.isReloading;
+            }
+
             if (lastShootCount != -1 && state.shootCount > lastShootCount)
             {
                 animator.SetTrigger(HashShoot);
@@ -122,9 +136,13 @@ namespace BrickOps.Players
                 shootAnimationTimer -= Time.deltaTime;
             }
             
-            float targetWeight = (state.isAiming || shootAnimationTimer > 0) ? 1f : 0f;
+            // Activar Upper Body Layer cuando: apunta, dispara o recarga
+            float targetWeight = (state.isAiming || shootAnimationTimer > 0 || state.isReloading) ? 1f : 0f;
             float currentWeight = animator.GetLayerWeight(1);
-            float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * 10f);
+            
+            // Usar velocidad diferente según si está entrando (blend in) o saliendo (blend out)
+            float blendSpeed = targetWeight > currentWeight ? 10f : 3f; // blend in rápido, blend out suave
+            float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * blendSpeed);
             animator.SetLayerWeight(1, newWeight);
         }
 
@@ -145,6 +163,7 @@ namespace BrickOps.Players
             lastAiming = false;
             lastCrouching = false;
             lastGrounded = true;
+            lastReloading = false;
 
             Debug.Log($"[RemotePlayerAnimator] Animation state reset on {gameObject.name}");
         }
