@@ -32,6 +32,8 @@ public class WaitingRoomController : MonoBehaviour
     private UdpTransport transport;
     private bool isHost;
     private List<IPEndPoint> connectedClients = new List<IPEndPoint>();
+    private ushort localSequenceNumber = 0;
+    private Dictionary<EndPoint, ushort> remoteSequences = new Dictionary<EndPoint, ushort>();
 
     void Start()
     {
@@ -40,14 +42,9 @@ public class WaitingRoomController : MonoBehaviour
         SetupUI();
         SetupListeners();
 
-        if (isHost)
-        {
-            StartHostLogic();
-        }
-        else
-        {
-            Debug.Log("[WaitingRoom] Client Mode: Waiting for user input...");
-        }
+        if (isHost) StartHostLogic();
+        
+        else Debug.Log("[WaitingRoom] Client Mode: Waiting for user input...");
     }
 
     void SetupUI()
@@ -95,10 +92,7 @@ public class WaitingRoomController : MonoBehaviour
         if (transport.InitializeServer(6000))
         {
             NetworkManager.Instance.udpSocket = transport.Socket;
-            NetworkManager.Instance.serverEndPoint = null;
-            
             AddChatMsg("<color=green>Server started on Port 6000.</color>");
-            AddChatMsg("Waiting for players...");
         }
         else
         {
@@ -143,18 +137,20 @@ public class WaitingRoomController : MonoBehaviour
             connectionPanel.SetActive(false);
             chatPanel.SetActive(true);
             
-            transport.Send($"JOIN:{name}", transport.RemoteEndPoint);
-            
-            AddChatMsg($"<color=green>Connected to {ipStr} as {name}</color>");
+            SendPacket($"JOIN:{name}", transport.RemoteEndPoint);
+            AddChatMsg($"<color=green>Connecting to {ipStr}...</color>");
         }
     }
     void Update()
     {
         if (transport != null && transport.Socket != null)
         {
-            while (transport.TryReceive(out string msg, out EndPoint sender))
+            while (transport.TryReceivePacket(out ushort seq, out string msg, out EndPoint sender))
             {
-                if (string.IsNullOrEmpty(msg)) continue;
+                // Filtre de paquets desordenats
+                if (!remoteSequences.ContainsKey(sender)) remoteSequences[sender] = 0;
+                
+                remoteSequences[sender] = seq;
 
                 if (isHost)
                     HandleMessageAsHost(msg, (IPEndPoint)sender);
@@ -162,6 +158,16 @@ public class WaitingRoomController : MonoBehaviour
                     HandleMessageAsClient(msg);
             }
         }
+    }
+    void SendPacket(string message, EndPoint target)
+    {
+        if (transport == null || target == null) return;
+        
+        // EMPAQUETEM ABANS D'ENVIAR
+        localSequenceNumber++;
+        byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(message, localSequenceNumber);
+        
+        transport.SendBytes(data, target);
     }
 
     void SendChatMessage()
@@ -179,8 +185,7 @@ public class WaitingRoomController : MonoBehaviour
         }
         else
         {
-            if (transport != null)
-                transport.Send(fullMsg, transport.RemoteEndPoint);
+            SendPacket(fullMsg, transport.RemoteEndPoint);
         }
 
         chatInput.text = "";
@@ -192,53 +197,44 @@ public class WaitingRoomController : MonoBehaviour
         if (!connectedClients.Contains(sender))
         {
             connectedClients.Add(sender);
-            
             int newId = connectedClients.Count + 1;
             
-            transport.Send($"PLAYER_ID:{newId}", sender);
+            SendPacket($"PLAYER_ID:{newId}", sender); // Ara usa SendPacket
             
             string joinMsg = $"Player {newId} joined!";
             HostBroadcast($"CHAT:<color=yellow>{joinMsg}</color>");
-            AddChatMsg($"<color=yellow>{joinMsg} ({sender})</color>");
+            AddChatMsg($"<color=yellow>{joinMsg}</color>");
             UpdatePlayerCount();
         }
-
-        if (msg.StartsWith("CHAT:"))
-        {
-            string content = msg.Substring(5); 
-            AddChatMsg(content); 
-            HostBroadcast(msg);  
-        }
-        else if (msg.StartsWith("JOIN:"))
-        {
-            string clientName = msg.Substring(5);
+        
+        if (msg.StartsWith("CHAT:")) {
+            HostBroadcast(msg);
+            AddChatMsg(msg.Substring(5));
         }
     }
 
     void HandleMessageAsClient(string msg)
     {
-        if (msg.StartsWith("PLAYER_ID:"))
-        {
+        if (msg.StartsWith("PLAYER_ID:")) {
             int id = int.Parse(msg.Split(':')[1]);
             NetworkManager.Instance.myPlayerId = id;
             AddChatMsg($"<color=blue>Assigned Player ID: {id}</color>");
         }
-        else if (msg.StartsWith("CHAT:"))
-        {
+        else if (msg.StartsWith("CHAT:")) {
             AddChatMsg(msg.Substring(5));
         }
-        else if (msg == "GAME_START")
-        {
-            AddChatMsg("<color=green>Host started game! Loading...</color>");
+        else if (msg == "GAME_START") {
             SceneManager.LoadScene("Game");
         }
     }
 
     void HostBroadcast(string msg)
     {
+        localSequenceNumber++;
+        byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(msg, localSequenceNumber);
         foreach (var client in connectedClients)
         {
-            transport.Send(msg, client);
+            transport.SendBytes(data, client);
         }
     }
 
@@ -248,21 +244,7 @@ public class WaitingRoomController : MonoBehaviour
             chatText.text += txt + "\n";
     }
     
-    void UpdatePlayerCount()
-    {
-        if(playerCountText != null)
-            playerCountText.text = $"Players: {connectedClients.Count + 1}"; 
-    }
-
-    void GoBack()
-    {
-        if (transport != null) transport.Close();
-        Destroy(NetworkManager.Instance.gameObject);
-        SceneManager.LoadScene("MainMenu");
-    }
-    
-    void OnApplicationQuit()
-    {
-        if (transport != null) transport.Close();
-    }
+    void UpdatePlayerCount() { if(playerCountText) playerCountText.text = $"Players: {connectedClients.Count + 1}"; }
+    void GoBack() { transport?.Close(); Destroy(NetworkManager.Instance.gameObject); SceneManager.LoadScene("MainMenu"); }
+    void OnApplicationQuit() { transport?.Close(); }
 }

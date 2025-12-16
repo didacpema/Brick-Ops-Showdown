@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using UnityEngine;
+using System.IO;
 
 namespace BrickOps.Networking
 {
@@ -23,6 +24,58 @@ namespace BrickOps.Networking
         public const string PLAYER_NAME = "PLAYER_NAME";
         public const string HEALTH_PACK_PICKUP = "HEALTH_PACK_PICKUP";
         public const string OBJECT_TRANSFORM = "OBJECT_TRANSFORM";
+        #endregion
+        #region Header
+        public class PacketHeader
+    {
+        public ushort SequenceId;
+        public ushort AckId;
+        public uint AckBitfield;
+        public byte Type;
+    }
+
+    public static class NetworkPacketManager
+    {
+        // Converteix missatge + seqüència a Bytes
+        public static byte[] WrapMessage(string message, ushort seq)
+        {
+            using (var ms = new MemoryStream())
+            using (var writer = new BinaryWriter(ms))
+            {
+                writer.Write(seq);          // 2 bytes
+                writer.Write((ushort)0);    // AckId (Pendent d'implementar)
+                writer.Write((uint)0);      // Bitfield (Pendent)
+                writer.Write((byte)0);      // Type (0 = Unreliable)
+                
+                byte[] stringBytes = System.Text.Encoding.UTF8.GetBytes(message);
+                writer.Write(stringBytes);
+                
+                return ms.ToArray();
+            }
+        }
+
+        // Llegeix els bytes i et torna la seqüència i el missatge
+        public static bool UnwrapMessage(byte[] data, int length, out ushort sequenceId, out string message)
+        {
+            sequenceId = 0;
+            message = "";
+            
+            if (length < 9) return false; // Mínim mida de capçalera
+
+            using (var ms = new MemoryStream(data, 0, length))
+            using (var reader = new BinaryReader(ms))
+            {
+                sequenceId = reader.ReadUInt16();
+                reader.ReadUInt16(); // Skip AckId
+                reader.ReadUInt32(); // Skip Bitfield
+                reader.ReadByte();   // Skip Type
+
+                // La resta és el missatge JSON
+                message = System.Text.Encoding.UTF8.GetString(reader.ReadBytes(length - (int)ms.Position));
+                return true;
+            }
+        }
+    }
         #endregion
 
         #region Message Building

@@ -76,6 +76,28 @@ namespace BrickOps.Networking
                 return false;
             }
         }
+        public bool TryReceivePacket(out ushort seq, out string message, out EndPoint sender)
+        {
+            message = null;
+            seq = 0;
+            sender = new IPEndPoint(IPAddress.Any, 0);
+
+            if (socket == null || socket.Available == 0) 
+                return false;
+
+            try
+            {
+                int bytes = socket.ReceiveFrom(receiveBuffer, ref sender);
+                if (bytes > 0)
+                {
+                    // Intentem desempaquetar fent servir el teu NetworkPacketManager
+                    return NetworkProtocol.NetworkPacketManager.UnwrapMessage(receiveBuffer, bytes, out seq, out message);
+                }
+            }
+            catch (SocketException) { }
+
+            return false;
+        }
 
         public void Send(string message, EndPoint target)
         {
@@ -91,6 +113,17 @@ namespace BrickOps.Networking
             catch (SocketException)
             {
             }
+        }
+        public void SendBytes(byte[] data, EndPoint target)
+        {
+            if (socket == null || target == null || data == null || data.Length == 0)
+                return;
+
+            try
+            {
+                socket.SendTo(data, target);
+            }
+            catch (SocketException) { }
         }
 
         public void Broadcast(string message, IEnumerable<IPEndPoint> recipients, IPEndPoint exclude = null)

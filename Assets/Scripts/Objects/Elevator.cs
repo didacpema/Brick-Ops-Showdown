@@ -16,6 +16,10 @@ public class Elevator : MonoBehaviour
     private bool movingUp = true;
     private bool isServer = false;
     private float nextSendTime = 0f;
+    private bool isMoving = false; // Variable nova per saber si cal enviar dades
+
+    // Interpolació client
+    private Vector3 clientTargetPos;
 
     void Start()
     {
@@ -26,6 +30,7 @@ public class Elevator : MonoBehaviour
 
         startPosition = transform.position;
         targetPosition = startPosition + Vector3.up * moveDistance;
+        clientTargetPos = transform.position;
 
         if (isServer || NetworkManager.Instance == null)
         {
@@ -35,10 +40,17 @@ public class Elevator : MonoBehaviour
 
     void Update()
     {
-        if (isServer && Time.time >= nextSendTime)
+        // Només enviem dades si SOM el servidor I ens estem movent
+        if (isServer && isMoving && Time.time >= nextSendTime)
         {
             SendTransformUpdate();
             nextSendTime = Time.time + (1f / sendRate);
+        }
+        
+        // Client: Suavitzar moviment
+        if (!isServer && NetworkManager.Instance != null)
+        {
+             transform.position = Vector3.Lerp(transform.position, clientTargetPos, Time.deltaTime * 5f);
         }
     }
 
@@ -48,6 +60,8 @@ public class Elevator : MonoBehaviour
         {
             Vector3 destination = movingUp ? targetPosition : startPosition;
             
+            isMoving = true; // Comença el moviment -> Comença l'enviament de xarxa
+            
             while (Vector3.Distance(transform.position, destination) > 0.01f)
             {
                 transform.position = Vector3.MoveTowards(transform.position, destination, moveSpeed * Time.deltaTime);
@@ -55,6 +69,10 @@ public class Elevator : MonoBehaviour
             }
 
             transform.position = destination;
+            
+            // Enviem un últim paquet per assegurar la posició final
+            SendTransformUpdate();
+            isMoving = false; // Parat -> Deixem d'enviar paquets
 
             yield return new WaitForSeconds(waitTime);
 
@@ -80,8 +98,13 @@ public class Elevator : MonoBehaviour
     {
         if (data.objectId == objectId)
         {
-            transform.position = data.GetPosition();
-            transform.eulerAngles = data.GetRotation();
+            clientTargetPos = data.GetPosition();
+            
+            // Correcció d'errors grans
+            if (Vector3.Distance(transform.position, clientTargetPos) > 2f)
+            {
+                transform.position = clientTargetPos;
+            }
         }
     }
 }

@@ -25,7 +25,7 @@ public class GameController : MonoBehaviour
 
     [Header("Network Settings")]
     [Tooltip("Tasa de envío de paquetes por segundo")]
-    public float sendRate = 60f; 
+    public float sendRate = 30f; 
 
     [Tooltip("Timeout para detectar desconexiones")]
     public float connectionTimeout = 10f;
@@ -37,6 +37,8 @@ public class GameController : MonoBehaviour
     private byte[] receiveBuffer = new byte[2048];
     private float nextSendTime = 0f;
     private float lastPacketTime = 0f;
+    private ushort localSequenceNumber = 0;
+    private Dictionary<string, ushort> remoteSequences = new Dictionary<string, ushort>();
     #endregion
 
     #region Private Variables - Game State
@@ -50,11 +52,19 @@ public class GameController : MonoBehaviour
     private int packetsReceived = 0;
     private float sessionStartTime = 0f;
     private float lastKeepAliveTime = 0f;
+    private Vector3 lastSentPosition;
+    private float lastSentRotation;
+    private int lastSentShootCount;    
+    private bool lastSentAiming;       
+    private bool lastSentCrouching;    
+    private bool lastSentGrounded;     
+    private const float MOV_THRESHOLD = 0.01f;
+    private const float ROT_THRESHOLD = 0.5f;
     #endregion
 
     #region Private Variables - Server
     private bool isServerHost = false;
-    private Dictionary<IPEndPoint, PlayerInfo> serverPlayers = new Dictionary<IPEndPoint, PlayerInfo>();
+    private Dictionary<string, PlayerInfo> serverPlayers = new Dictionary<string, PlayerInfo>();
     private List<IPEndPoint> serverClients = new List<IPEndPoint>();
     private Dictionary<int, string> nameCache = new Dictionary<int, string>();
     
@@ -68,6 +78,8 @@ public class GameController : MonoBehaviour
     #region Unity Lifecycle
     void Awake()
     {
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = 60;
         if (Instance == null)
         {
             Instance = this;
@@ -162,10 +174,8 @@ public class GameController : MonoBehaviour
             CheckConnection();
         }
         
-        if (!isServerHost || serverClients.Count > 0)
-        {
-            SendPeriodicUpdate();
-        }
+        // SIEMPRE enviar datos periódicamente si estamos inicializados
+        SendPeriodicUpdate();
 
         if (PlayerManager.Instance != null)
         {
@@ -178,6 +188,7 @@ public class GameController : MonoBehaviour
         {
             ReturnToMenu();
         }
+        
         if (Time.time - lastKeepAliveTime > 3f && isInitialized)
         {
             SendMyName();
@@ -235,9 +246,6 @@ public class GameController : MonoBehaviour
         SetupEventListeners();
 
         SetupInput();
-
-        // Camera
-        //SetupCamera();
 
         return true;
     }
@@ -318,20 +326,34 @@ public class GameController : MonoBehaviour
     #region Server Hosting
     void ReceiveAsServer()
     {
-        EndPoint senderEndPoint = new IPEndPoint(IPAddress.Any, 0);
+        EndPoint reusableEndPoint = new IPEndPoint(IPAddress.Any, 0);
 
         try
         {
             while (udpSocket.Available > 0)
             {
-                int bytes = udpSocket.ReceiveFrom(receiveBuffer, ref senderEndPoint);
+                int bytes = udpSocket.ReceiveFrom(receiveBuffer, ref reusableEndPoint);
                 if (bytes > 0)
                 {
-                    string message = NetworkProtocol.BytesToMessage(receiveBuffer, bytes);
-                    ProcessServerMessage((IPEndPoint)senderEndPoint, message);
-                    
-                    lastPacketTime = Time.time;
-                    packetsReceived++;
+                    IPEndPoint senderCopy = new IPEndPoint(((IPEndPoint)reusableEndPoint).Address, ((IPEndPoint)reusableEndPoint).Port);
+                    string clientKey = senderCopy.ToString();
+
+                    if (NetworkProtocol.NetworkPacketManager.UnwrapMessage(receiveBuffer, bytes, out ushort seq, out string message))
+                    {
+                        if (!remoteSequences.ContainsKey(clientKey)) 
+                            remoteSequences[clientKey] = 0;
+
+                        ushort lastSeq = remoteSequences[clientKey];
+
+                        if (IsNewer(seq, lastSeq))
+                        {
+                            remoteSequences[clientKey] = seq; 
+                            ProcessServerMessage(senderCopy, message); 
+                            
+                            lastPacketTime = Time.time;
+                            packetsReceived++;
+                        }
+                    }
                 }
             }
         }
@@ -340,12 +362,20 @@ public class GameController : MonoBehaviour
 
     void ProcessServerMessage(IPEndPoint sender, string message)
     {
-        if (!serverPlayers.ContainsKey(sender))
+        string clientKey = sender.ToString();
+        
+        // Si no está registrado, registrarlo primero
+        if (!serverPlayers.ContainsKey(clientKey))
         {
-            string playerName = message.Trim();
+            string playerName = "Player_" + (serverClients.Count + 2);
+            
+            // Intentar extraer el nombre si viene en el mensaje
+            if (!message.StartsWith("PLAYER_DATA") && !message.StartsWith("SHOOT_DATA"))
+            {
+                playerName = message.Trim();
+            }
 
-
-            int newPlayerId = serverClients.Count + 1;
+            int newPlayerId = serverClients.Count + 2; // +2 porque el servidor es Player 1
             
             PlayerInfo playerInfo = new PlayerInfo
             {
@@ -353,7 +383,7 @@ public class GameController : MonoBehaviour
                 playerId = newPlayerId
             };
             
-            serverPlayers[sender] = playerInfo;
+            serverPlayers[clientKey] = playerInfo;
             serverClients.Add(sender);
             
             SendToClient(sender, NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_ID, newPlayerId.ToString()));
@@ -364,22 +394,20 @@ public class GameController : MonoBehaviour
             if (serverClients.Count >= 1)
             {
                 BroadcastToClients(NetworkProtocol.READY_TO_START);
-                Debug.Log("[Server] Ready to start with 2 players");
+                Debug.Log("[Server] Ready to start with multiple players");
             }
-            
-            return;
         }
         
+        // Procesar el mensaje normalmente
         if (!NetworkProtocol.TryParseMessage(message, out string messageType, out string data))
-        {
             return;
-        }
 
         switch (messageType)
         {
             case NetworkProtocol.PLAYER_DATA:
-                BroadcastToClients(message, sender);
-                
+                // NO reenviar los datos del cliente de vuelta a todos
+                // Solo procesarlos localmente y enviar a OTROS clientes
+                BroadcastToClients(message, sender); // exclude sender
                 ProcessPlayerData(data);
                 break;
 
@@ -397,19 +425,22 @@ public class GameController : MonoBehaviour
                 BroadcastToClients(message, sender);
                 ProcessRespawnData(data);
                 break;
+                
             case NetworkProtocol.BARRICADA_HIT:
-            BarricadaHitData hitData = NetworkProtocol.DeserializeFromJson<BarricadaHitData>(data);
-            if (hitData != null)
-            {
-                BarricadaManager.Instance?.ApplyDamageToBarricada(hitData.barricadaId, hitData.damage);
-            }
-            break;            case NetworkProtocol.PLAYER_NAME:
+                BarricadaHitData hitData = NetworkProtocol.DeserializeFromJson<BarricadaHitData>(data);
+                if (hitData != null)
+                {
+                    BarricadaManager.Instance?.ApplyDamageToBarricada(hitData.barricadaId, hitData.damage);
+                }
+                BroadcastToClients(message, sender);
+                break;
+                
+            case NetworkProtocol.PLAYER_NAME:
                 PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
                 if (nameData != null)
                 {
                     RegisterAndApplyName(nameData.playerId, nameData.playerName);
-                    
-                    if (isServerHost) BroadcastToClients(message, sender as IPEndPoint);
+                    BroadcastToClients(message, sender);
                 }
                 break;
             
@@ -443,7 +474,8 @@ public class GameController : MonoBehaviour
         
         try
         {
-            byte[] data = NetworkProtocol.MessageToBytes(msg);
+            localSequenceNumber++;
+            byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(msg, localSequenceNumber);
             udpSocket.SendTo(data, target);
         }
         catch (Exception ex)
@@ -454,15 +486,14 @@ public class GameController : MonoBehaviour
 
     public void BroadcastToClients(string msg, IPEndPoint exclude = null)
     {
-        if (udpSocket == null)
-            return;
-            
-        byte[] data = NetworkProtocol.MessageToBytes(msg);
+        if (udpSocket == null) return;
+
+        localSequenceNumber++;
+        byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(msg, localSequenceNumber);
         
         foreach (var client in serverClients)
         {
-            if (exclude != null && client.Equals(exclude)) 
-                continue;
+            if (exclude != null && client.Equals(exclude)) continue;
                 
             try
             {
@@ -489,45 +520,76 @@ public class GameController : MonoBehaviour
 
         SendPlayerData();
         nextSendTime = Time.time + (1f / sendRate);
-    }    void SendPlayerData()
+    }
+    
+   void SendPlayerData()
     {
-        if (udpSocket == null)
-            return;
+        if (udpSocket == null) return;
 
         GameObject localPlayer = PlayerManager.Instance?.LocalPlayer;
-        if (localPlayer == null)
-            return;
+        if (localPlayer == null) return;
 
+        // 1. Obtenim l'estat actual complet
+        PlayerState currentState;
+        if (cachedInputManager != null)
+        {
+            currentState = cachedInputManager.GetCurrentPlayerState(myPlayerId);
+        }
+        else
+        {
+            currentState = new PlayerState(
+                myPlayerId,
+                localPlayer.transform.position,
+                localPlayer.transform.eulerAngles.y
+            );
+        }
+
+        // 2. Comprovem canvis de MOVIMENT
+        bool positionChanged = Vector3.Distance(currentState.GetPosition(), lastSentPosition) > MOV_THRESHOLD;
+        bool rotationChanged = Mathf.Abs(currentState.rotY - lastSentRotation) > ROT_THRESHOLD;
+
+        // 3. Comprovem canvis d'ESTAT (Animacions)
+        // Si qualsevol d'aquests canvia, hem d'enviar paquet encara que estiguem quiets
+        bool stateChanged = (currentState.isAiming != lastSentAiming) ||
+                            (currentState.isCrouching != lastSentCrouching) ||
+                            (currentState.isGrounded != lastSentGrounded) ||
+                            (currentState.shootCount != lastSentShootCount);
+
+        // 4. Decidim si enviar o no
+        // Si no hi ha cap canvi I fa menys d'1 segon de l'últim paquet -> NO ENVIEM
+        if (!positionChanged && !rotationChanged && !stateChanged && Time.time - lastPacketTime < 1.0f)
+        {
+            return;
+        }
+
+        // 5. Actualitzem l'últim estat conegut
+        lastSentPosition = currentState.GetPosition();
+        lastSentRotation = currentState.rotY;
+        lastSentAiming = currentState.isAiming;
+        lastSentCrouching = currentState.isCrouching;
+        lastSentGrounded = currentState.isGrounded;
+        lastSentShootCount = currentState.shootCount;
+
+        // 6. Enviem el paquet
         try
         {
-            PlayerState state;
-
-            if (cachedInputManager != null)
-            {
-                state = cachedInputManager.GetCurrentPlayerState(myPlayerId);
-            }
-            else
-            {
-                state = new PlayerState(
-                    myPlayerId,
-                    localPlayer.transform.position,
-                    localPlayer.transform.eulerAngles.y
-                );
-            }
-
-            string message = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_DATA, state);
-            byte[] data = NetworkProtocol.MessageToBytes(message);
+            string jsonMessage = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_DATA, currentState);
+            localSequenceNumber++;
+            byte[] packetBytes = NetworkProtocol.NetworkPacketManager.WrapMessage(jsonMessage, localSequenceNumber);
 
             if (isServerHost)
             {
-                BroadcastToClients(message);
+                foreach (var client in serverClients)
+                {
+                    udpSocket.SendTo(packetBytes, client);
+                    packetsSent++;
+                }
             }
             else
             {
-                udpSocket.SendTo(data, serverEndPoint);
+                udpSocket.SendTo(packetBytes, serverEndPoint);
+                packetsSent++;
             }
-            
-            packetsSent++;
         }
         catch (Exception ex)
         {
@@ -537,14 +599,16 @@ public class GameController : MonoBehaviour
 
     public void SendShootData(int shooterId, int targetId, float damage, Vector3 hitPoint, bool didHit)
     {
-        if (udpSocket == null)
-            return;
+        if (udpSocket == null) return;
 
         try
         {
             ShootData shootData = new ShootData(shooterId, targetId, damage, hitPoint, didHit);
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.SHOOT_DATA, shootData);
-            byte[] data = NetworkProtocol.MessageToBytes(message);
+
+            localSequenceNumber++;
+            byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(message, localSequenceNumber);
+            
             if (didHit && targetId != -1 && targetId != myPlayerId)
             {
                 GameObject enemy = PlayerManager.Instance?.GetPlayer(targetId);
@@ -553,6 +617,7 @@ public class GameController : MonoBehaviour
                     enemy.GetComponent<PlayerHealth>()?.ApplyRemoteDamage(damage);
                 }
             }
+            
             if (isServerHost)
             {
                 BroadcastToClients(message);
@@ -579,7 +644,8 @@ public class GameController : MonoBehaviour
         {
             DeathData deathData = new DeathData(victimId, killerId);
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.DEATH_DATA, deathData);
-            byte[] data = NetworkProtocol.MessageToBytes(message);
+            localSequenceNumber++;
+            byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(message, localSequenceNumber);
 
             if (isServerHost)
             {
@@ -605,7 +671,8 @@ public class GameController : MonoBehaviour
         {
             RespawnData respawnData = new RespawnData(playerId, position, rotation);
             string message = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_RESPAWN, respawnData);
-            byte[] data = NetworkProtocol.MessageToBytes(message);
+            localSequenceNumber++;
+            byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(message, localSequenceNumber);
 
             if (isServerHost)
             {
@@ -621,24 +688,26 @@ public class GameController : MonoBehaviour
             Debug.LogError($"[GameController] Send respawn failed: {ex.Message}");
         }
     }
+    
     public void SendBarricadeHit(int barricadaId, int damage)
     {
         if (udpSocket == null) return;
 
         try
         {
-            BarricadaHitData data = new BarricadaHitData(barricadaId, damage);
-            string message = NetworkProtocol.BuildMessage(NetworkProtocol.BARRICADA_HIT, data);
-            byte[] bytes = NetworkProtocol.MessageToBytes(message);
+            BarricadaHitData BarricadaData = new BarricadaHitData(barricadaId, damage);
+            string message = NetworkProtocol.BuildMessage(NetworkProtocol.BARRICADA_HIT, BarricadaData);
+            localSequenceNumber++;
+            byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(message, localSequenceNumber);
 
             if (isServerHost)
             {
                 BarricadaManager.Instance?.ApplyDamageToBarricada(barricadaId, damage);
                 BroadcastToClients(message);
-                }
+            }
             else
             {
-                udpSocket.SendTo(bytes, serverEndPoint);
+                udpSocket.SendTo(data, serverEndPoint);
             }
         }
         catch (Exception ex)
@@ -646,6 +715,7 @@ public class GameController : MonoBehaviour
             Debug.LogError($"[GameController] Error sending barricade hit: {ex.Message}");
         }
     }
+    
     void SendMyName()
     {
         if (udpSocket == null) return;
@@ -655,15 +725,15 @@ public class GameController : MonoBehaviour
         PlayerNameData data = new PlayerNameData(myPlayerId, myName);
         string msg = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_NAME, data);
         
+        localSequenceNumber++;
+        byte[] packetBytes = NetworkProtocol.NetworkPacketManager.WrapMessage(msg, localSequenceNumber);
+        
         if (isServerHost)
             BroadcastToClients(msg);
         else
-            udpSocket.SendTo(NetworkProtocol.MessageToBytes(msg), serverEndPoint);
+            udpSocket.SendTo(packetBytes, serverEndPoint);
     }
     
-    /// <summary>
-    /// Envía un mensaje genérico a la red
-    /// </summary>
     public void SendMessageToNetwork(string message)
     {
         if (udpSocket == null) 
@@ -674,7 +744,8 @@ public class GameController : MonoBehaviour
         
         try
         {
-            byte[] data = NetworkProtocol.MessageToBytes(message);
+            localSequenceNumber++;
+            byte[] data = NetworkProtocol.NetworkPacketManager.WrapMessage(message, localSequenceNumber);
             
             if (isServerHost)
             {
@@ -697,28 +768,45 @@ public class GameController : MonoBehaviour
     #region Network - Receiving
     void ReceiveNetworkData()
     {
-        if (udpSocket == null)
-            return;
-
-        EndPoint from = new IPEndPoint(IPAddress.Any, 0);
+        if (udpSocket == null) return;
+        EndPoint reusableEndPoint = new IPEndPoint(IPAddress.Any, 0);
 
         try
         {
             while (udpSocket.Available > 0)
             {
-                int bytes = udpSocket.ReceiveFrom(receiveBuffer, ref from);
-                
+                int bytes = udpSocket.ReceiveFrom(receiveBuffer, ref reusableEndPoint);
                 if (bytes > 0)
                 {
-                    string message = NetworkProtocol.BytesToMessage(receiveBuffer, bytes);
-                    ProcessNetworkMessage(message);
-                    
-                    lastPacketTime = Time.time;
-                    packetsReceived++;
+                    IPEndPoint senderCopy = new IPEndPoint(((IPEndPoint)reusableEndPoint).Address, ((IPEndPoint)reusableEndPoint).Port);
+                    string senderKey = senderCopy.ToString();
+
+                    if (NetworkProtocol.NetworkPacketManager.UnwrapMessage(receiveBuffer, bytes, out ushort seq, out string message))
+                    {
+                        lastPacketTime = Time.time; 
+                        packetsReceived++;
+
+                        if (!remoteSequences.ContainsKey(senderKey)) 
+                            remoteSequences[senderKey] = 0;
+
+                        if (IsNewer(seq, remoteSequences[senderKey]))
+                        {
+                            remoteSequences[senderKey] = seq; 
+                            ProcessNetworkMessage(message); 
+                        }
+                    }
                 }
             }
         }
         catch (SocketException) { }
+    }
+    
+    bool IsNewer(ushort incoming, ushort current)
+    {
+        if (incoming == current) return false;
+
+        return ((incoming > current) && (incoming - current <= 32768)) || 
+               ((incoming < current) && (current - incoming > 32768));
     }
 
     void ProcessNetworkMessage(string message)
@@ -755,7 +843,9 @@ public class GameController : MonoBehaviour
 
             case NetworkProtocol.SERVER_CLOSED:
                 HandleServerClosed();
-                break;            case NetworkProtocol.PLAYER_NAME:
+                break;
+                
+            case NetworkProtocol.PLAYER_NAME:
                 PlayerNameData nameData = NetworkProtocol.DeserializeFromJson<PlayerNameData>(data);
                 if (nameData != null)
                 {
@@ -771,6 +861,10 @@ public class GameController : MonoBehaviour
 
             case NetworkProtocol.OBJECT_TRANSFORM:
                 ProcessObjectTransform(data);
+                break;
+                
+            case NetworkProtocol.PLAYER_ID:
+                Debug.Log($"[Client] Confirmed ID from Game Server: {data}");
                 break;
             
             default:
@@ -906,6 +1000,7 @@ public class GameController : MonoBehaviour
         Debug.Log("[GameController] Server closed connection");
         ReturnToMenu();
     }
+    
     void HandlePlayerSpawnedName(int id, bool isLocal)
     {
         if (nameCache.ContainsKey(id))
@@ -913,7 +1008,8 @@ public class GameController : MonoBehaviour
             RegisterAndApplyName(id, nameCache[id]);
         }
     }
-      void ProcessHealthPackPickup(string jsonData)
+    
+    void ProcessHealthPackPickup(string jsonData)
     {
         HealthPackData healthPackData = NetworkProtocol.DeserializeFromJson<HealthPackData>(jsonData);
         
