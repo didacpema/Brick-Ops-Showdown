@@ -432,7 +432,8 @@ public class GameController : MonoBehaviour
                 {
                     BarricadaManager.Instance?.ApplyDamageToBarricada(hitData.barricadaId, hitData.damage);
                 }
-                BroadcastToClients(message, sender);
+                // Broadcast a TODOS los clientes (sin excluir al sender ya que todos aplican localmente)
+                BroadcastToClients(message);
                 break;
                 
             case NetworkProtocol.PLAYER_NAME:
@@ -702,11 +703,13 @@ public class GameController : MonoBehaviour
 
             if (isServerHost)
             {
+                // El host aplica el daño localmente y hace broadcast a los clientes
                 BarricadaManager.Instance?.ApplyDamageToBarricada(barricadaId, damage);
                 BroadcastToClients(message);
             }
             else
             {
+                // Cliente: enviar al servidor (el cliente ya aplicó el daño localmente)
                 udpSocket.SendTo(data, serverEndPoint);
             }
         }
@@ -861,6 +864,14 @@ public class GameController : MonoBehaviour
 
             case NetworkProtocol.OBJECT_TRANSFORM:
                 ProcessObjectTransform(data);
+                break;
+                
+            case NetworkProtocol.BARRICADA_HIT:
+                BarricadaHitData barricadaHitData = NetworkProtocol.DeserializeFromJson<BarricadaHitData>(data);
+                if (barricadaHitData != null)
+                {
+                    BarricadaManager.Instance?.ApplyDamageToBarricada(barricadaHitData.barricadaId, barricadaHitData.damage);
+                }
                 break;
                 
             case NetworkProtocol.PLAYER_ID:

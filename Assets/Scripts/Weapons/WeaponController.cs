@@ -239,15 +239,12 @@ public class WeaponController : MonoBehaviour
     {
         if (muzzlePoint == null) return;
         
-        // Verificar munición (seguridad adicional) - NO DISPARAR SI NO HAY
         if (currentAmmo <= 0)
         {
-            // No consumir munición ni hacer nada, solo intentar recargar
             TryReload();
             return;
         }
         
-        // Consumir munición ANTES de disparar
         currentAmmo--;
 
         Vector3 shootDirection = GetShootDirection();
@@ -270,8 +267,7 @@ public class WeaponController : MonoBehaviour
             {
                 int barricadaDamage = Mathf.RoundToInt(bodyDamage / 2.5f); 
                 
-                barricada.TakeDamage(barricadaDamage);
-                
+                // Solo el HOST aplica el daño localmente, los clientes esperan el broadcast
                 if (GameController.Instance != null)
                 {
                     GameController.Instance.SendBarricadeHit(barricada.BarricadaId, barricadaDamage);
@@ -439,16 +435,12 @@ public class WeaponController : MonoBehaviour
     {
         if (!isLocalPlayer) return;
         
-        // No se puede recargar si ya está recargando
         if (isReloading) return;
         
-        // No se puede recargar si el cargador está lleno
         if (currentAmmo >= maxMagazineSize) return;
         
-        // No se puede recargar si no hay munición de reserva
         if (reserveAmmo <= 0) return;
         
-        // Iniciar recarga
         StartReload();
     }
     
@@ -460,7 +452,6 @@ public class WeaponController : MonoBehaviour
         isReloading = true;
         reloadStartTime = Time.time;
         
-        // Activar animación de recarga
         if (playerAnimator != null)
         {
             playerAnimator.SetTrigger(HashReload);
@@ -493,7 +484,7 @@ public class WeaponController : MonoBehaviour
         
         if (loseAmmoOnReload)
         {
-            // Modo realista: se pierde la munición del cargador actual
+            
             ammoNeeded = maxMagazineSize;
             currentAmmo = 0;
         }
@@ -517,7 +508,7 @@ public class WeaponController : MonoBehaviour
         
         isReloading = false;
         
-        // Resetear animación (esto depende de cómo esté configurado tu Animator)
+       
         if (playerAnimator != null)
         {
             playerAnimator.ResetTrigger(HashReload);
