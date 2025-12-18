@@ -116,7 +116,7 @@ namespace BrickOps.Players
         private bool isSprinting;
         private bool isMoving;
         
-        // Rotación vertical (el jugador ya rota horizontalmente)
+        // Rotación vertical
         private float verticalRotation;
         
         // Shake system

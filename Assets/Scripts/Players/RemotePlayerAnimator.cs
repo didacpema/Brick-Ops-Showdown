@@ -23,7 +23,7 @@ namespace BrickOps.Players
         private float shootAnimationTimer = 0f;
         private const float SHOOT_ANIMATION_DURATION = 0.6f;
 
-        // Hashes de parámetros del Animator (optimización)
+        // Hashes de parámetros del Animator
         private static readonly int HashIsWalking = Animator.StringToHash("IsWalking");
         private static readonly int HashIsRunning = Animator.StringToHash("IsRunning");
         private static readonly int HashIsAiming = Animator.StringToHash("IsAiming");
@@ -136,12 +136,10 @@ namespace BrickOps.Players
                 shootAnimationTimer -= Time.deltaTime;
             }
             
-            // Activar Upper Body Layer cuando: apunta, dispara o recarga
             float targetWeight = (state.isAiming || shootAnimationTimer > 0 || state.isReloading) ? 1f : 0f;
             float currentWeight = animator.GetLayerWeight(1);
             
-            // Usar velocidad diferente según si está entrando (blend in) o saliendo (blend out)
-            float blendSpeed = targetWeight > currentWeight ? 10f : 3f; // blend in rápido, blend out suave
+            float blendSpeed = targetWeight > currentWeight ? 10f : 3f; 
             float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * blendSpeed);
             animator.SetLayerWeight(1, newWeight);
         }

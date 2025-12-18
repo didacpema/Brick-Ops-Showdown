@@ -17,7 +17,7 @@ public class ServerSceneController : MonoBehaviour
 
     [Header("Settings")]
     public int port = 6000;
-    private const int MAX_PLAYERS = 10;
+    private const int MAX_PLAYERS = 40;
 
     private UdpTransport transport;
 
@@ -137,7 +137,7 @@ public class ServerSceneController : MonoBehaviour
             }
             else if (msg == "START_GAME")
             {
-                if (clients.Count >= MAX_PLAYERS && !gameStarted)
+                if (clients.Count <= MAX_PLAYERS && !gameStarted)
                 {
                     StartGame();
                 }
@@ -153,7 +153,7 @@ public class ServerSceneController : MonoBehaviour
 
     void CheckPlayersReady()
     {
-        if (clients.Count >= MAX_PLAYERS)
+        if (clients.Count <= MAX_PLAYERS)
         {
             Broadcast("READY_TO_START");
             Log("2 players connected! Clients can now start the game.");
@@ -192,7 +192,7 @@ public class ServerSceneController : MonoBehaviour
     {
         playerCountText.text = $"Players Connected: {clients.Count}/{MAX_PLAYERS}";
         
-        if (clients.Count >= MAX_PLAYERS)
+        if (clients.Count <= MAX_PLAYERS)
         {
             playerCountText.color = Color.green;
         }

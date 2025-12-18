@@ -62,7 +62,6 @@ namespace BrickOps.Players
             playerRootTransform = transform;
         }
 
-        // VALIDACIÓN: Advertir si el torso tiene componentes físicos que puedan interferir
         Rigidbody torsoRb = torsoTransform.GetComponent<Rigidbody>();
         Collider torsoCol = torsoTransform.GetComponent<Collider>();
         

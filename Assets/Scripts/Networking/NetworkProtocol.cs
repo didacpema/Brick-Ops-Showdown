@@ -36,16 +36,15 @@ namespace BrickOps.Networking
 
     public static class NetworkPacketManager
     {
-        // Converteix missatge + seqüència a Bytes
         public static byte[] WrapMessage(string message, ushort seq)
         {
             using (var ms = new MemoryStream())
             using (var writer = new BinaryWriter(ms))
             {
-                writer.Write(seq);          // 2 bytes
-                writer.Write((ushort)0);    // AckId (Pendent d'implementar)
-                writer.Write((uint)0);      // Bitfield (Pendent)
-                writer.Write((byte)0);      // Type (0 = Unreliable)
+                writer.Write(seq);          
+                writer.Write((ushort)0);  
+                writer.Write((uint)0);      
+                writer.Write((byte)0);      
                 
                 byte[] stringBytes = System.Text.Encoding.UTF8.GetBytes(message);
                 writer.Write(stringBytes);
@@ -54,23 +53,21 @@ namespace BrickOps.Networking
             }
         }
 
-        // Llegeix els bytes i et torna la seqüència i el missatge
         public static bool UnwrapMessage(byte[] data, int length, out ushort sequenceId, out string message)
         {
             sequenceId = 0;
             message = "";
             
-            if (length < 9) return false; // Mínim mida de capçalera
+            if (length < 9) return false;
 
             using (var ms = new MemoryStream(data, 0, length))
             using (var reader = new BinaryReader(ms))
             {
                 sequenceId = reader.ReadUInt16();
-                reader.ReadUInt16(); // Skip AckId
-                reader.ReadUInt32(); // Skip Bitfield
-                reader.ReadByte();   // Skip Type
+                reader.ReadUInt16(); 
+                reader.ReadUInt32(); 
+                reader.ReadByte();   
 
-                // La resta és el missatge JSON
                 message = System.Text.Encoding.UTF8.GetString(reader.ReadBytes(length - (int)ms.Position));
                 return true;
             }

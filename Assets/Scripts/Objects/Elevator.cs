@@ -40,14 +40,12 @@ public class Elevator : MonoBehaviour
 
     void Update()
     {
-        // Només enviem dades si SOM el servidor I ens estem movent
         if (isServer && isMoving && Time.time >= nextSendTime)
         {
             SendTransformUpdate();
             nextSendTime = Time.time + (1f / sendRate);
         }
         
-        // Client: Suavitzar moviment
         if (!isServer && NetworkManager.Instance != null)
         {
              transform.position = Vector3.Lerp(transform.position, clientTargetPos, Time.deltaTime * 5f);
@@ -60,7 +58,7 @@ public class Elevator : MonoBehaviour
         {
             Vector3 destination = movingUp ? targetPosition : startPosition;
             
-            isMoving = true; // Comença el moviment -> Comença l'enviament de xarxa
+            isMoving = true; 
             
             while (Vector3.Distance(transform.position, destination) > 0.01f)
             {
@@ -70,9 +68,8 @@ public class Elevator : MonoBehaviour
 
             transform.position = destination;
             
-            // Enviem un últim paquet per assegurar la posició final
             SendTransformUpdate();
-            isMoving = false; // Parat -> Deixem d'enviar paquets
+            isMoving = false; 
 
             yield return new WaitForSeconds(waitTime);
 
@@ -100,7 +97,6 @@ public class Elevator : MonoBehaviour
         {
             clientTargetPos = data.GetPosition();
             
-            // Correcció d'errors grans
             if (Vector3.Distance(transform.position, clientTargetPos) > 2f)
             {
                 transform.position = clientTargetPos;

@@ -6,14 +6,11 @@ public class RotationAnimation : MonoBehaviour
 {
     [SerializeField] private float rotationSpeed = 75f;
     [SerializeField] private int objectId = 0; 
-    
-    // OPTIMITZACIÓ: Baixem el sendRate a 5 (suficient per rotacions visuals)
     [SerializeField] private float sendRate = 5f; 
 
     private float nextSendTime = 0f;
     private bool isServer = false;
 
-    // Variables per a la interpolació al client
     private Quaternion targetRotation;
     private float interpolationSpeed = 10f;
 
@@ -30,7 +27,6 @@ public class RotationAnimation : MonoBehaviour
     {  
         if (isServer || NetworkManager.Instance == null)
         {
-            // Lògica del Servidor: Rotar i enviar
             transform.Rotate(0f, 0f, rotationSpeed * Time.deltaTime);
 
             if (isServer && Time.time >= nextSendTime)
@@ -41,8 +37,6 @@ public class RotationAnimation : MonoBehaviour
         }
         else
         {
-            // Lògica del Client: Interpolació SUAU
-            // En lloc de teletransportar la rotació, la suavitzem
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * interpolationSpeed);
         }
     }
@@ -65,10 +59,8 @@ public class RotationAnimation : MonoBehaviour
     {
         if (data.objectId == objectId)
         {
-            // En lloc d'aplicar directament, guardem el target per interpolar al Update
             targetRotation = Quaternion.Euler(data.GetRotation());
             
-            // Si la desincronització és massa gran (més de 45 graus), forcem el salt
             if (Quaternion.Angle(transform.rotation, targetRotation) > 45f)
             {
                 transform.rotation = targetRotation;

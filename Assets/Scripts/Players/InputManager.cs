@@ -139,14 +139,13 @@ public class InputManager : MonoBehaviour
         
         if (shootBufferFrames > 0) shootBufferFrames--;
         
-        // Ejecutar salto si hay frames en el buffer Y está en el suelo
         if (jumpBufferFrames > 0)
         {
             jumpBufferFrames--;
             if (CanJump())
             {
                 PerformJump();
-                jumpBufferFrames = 0; // Limpiar buffer después de saltar
+                jumpBufferFrames = 0;
             }
         }
         
@@ -200,7 +199,6 @@ public class InputManager : MonoBehaviour
             isCrouching = false;
         }
 
-        // Si intenta correr mientras recarga, cancelar recarga automáticamente
         bool wantsToRun = Input.GetKey(KeyCode.LeftShift) && moveDirection.sqrMagnitude > 0.01f && !isCrouching;
         if (wantsToRun && weaponController != null && weaponController.IsReloading())
         {
@@ -279,11 +277,9 @@ public class InputManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            // Si intenta saltar mientras recarga, cancelar recarga
             if (weaponController != null && weaponController.IsReloading())
             {
                 weaponController.CancelReload();
-                // NO hacer return - continuar con el salto
             }
             
             if (isCrouching)
@@ -299,7 +295,6 @@ public class InputManager : MonoBehaviour
 
     void CaptureAimingInput()
     {
-        // Permitir apuntar mientras se recarga
         isAiming = Input.GetMouseButton(1);
         
         if (weaponController != null)
@@ -312,13 +307,10 @@ public class InputManager : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0) && Time.time >= lastShootTime + shootCooldown)
         {
-            // Verificar que no esté recargando y que tenga munición antes de ejecutar animaciones
             bool canShoot = !weaponController.IsReloading() && weaponController.GetCurrentAmmo() > 0;
             
-            // TryShoot maneja toda la lógica (incluyendo recarga si no hay munición)
             weaponController.TryShoot();
             
-            // Solo ejecutar efectos visuales/sonoros si realmente puede disparar
             if (canShoot)
             {
                 justShot = true;
@@ -503,13 +495,11 @@ public class InputManager : MonoBehaviour
         animator.SetBool(HashIsAiming, isAiming);
         animator.SetBool(HashIsCrouching, isCrouching);
         
-        // Activar Upper Body Layer cuando: apunta, dispara o recarga
         bool isReloading = weaponController != null && weaponController.IsReloading();
         float targetWeight = (isAiming || shootAnimationTimer > 0 || isReloading) ? 1f : 0f;
         float currentWeight = animator.GetLayerWeight(1);
         
-        // Usar velocidad diferente según si está entrando (blend in) o saliendo (blend out)
-        float blendSpeed = targetWeight > currentWeight ? 10f : 3f; // blend in rápido, blend out suave
+        float blendSpeed = targetWeight > currentWeight ? 10f : 3f; 
         float newWeight = Mathf.Lerp(currentWeight, targetWeight, Time.deltaTime * blendSpeed);
         animator.SetLayerWeight(1, newWeight);
     }

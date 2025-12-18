@@ -4,9 +4,7 @@ namespace BrickOps.Utils
 {
     public class ColliderVisualizer : MonoBehaviour
     {
-        // --- INTERRUPTOR GLOBAL ---
         public static bool ShowGizmos = false; 
-        // --------------------------
 
         public Color boxColor = Color.green;
         public Color capsuleColor = Color.cyan;
@@ -16,7 +14,6 @@ namespace BrickOps.Utils
 
         void Awake()
         {
-            // Configuración del material (igual que antes)
             Shader shader = Shader.Find("Hidden/Internal-Colored");
             lineMaterial = new Material(shader);
             lineMaterial.hideFlags = HideFlags.HideAndDontSave;
@@ -28,10 +25,8 @@ namespace BrickOps.Utils
 
         void OnRenderObject()
         {
-            // 1. CHEQUEO MAESTRO: Si la variable global es false, ADIÓS.
             if (!ShowGizmos) return;
 
-            // 2. Seguridad extra: Si no hay material, fuera.
             if (lineMaterial == null) return;
 
             lineMaterial.SetPass(0);
@@ -42,7 +37,6 @@ namespace BrickOps.Utils
             {
                 if (col == null || !col.enabled || !col.gameObject.activeInHierarchy) continue;
                 
-                // Evitamos dibujarnos a nosotros mismos si el visualizador tuviera collider (raro pero posible)
                 if (col.GetComponent<ColliderVisualizer>()) continue;
 
                 if (col is BoxCollider box) DrawBox(box);

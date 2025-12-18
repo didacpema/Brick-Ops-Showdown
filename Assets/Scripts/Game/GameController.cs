@@ -174,7 +174,6 @@ public class GameController : MonoBehaviour
             CheckConnection();
         }
         
-        // SIEMPRE enviar datos periódicamente si estamos inicializados
         SendPeriodicUpdate();
 
         if (PlayerManager.Instance != null)
@@ -364,18 +363,16 @@ public class GameController : MonoBehaviour
     {
         string clientKey = sender.ToString();
         
-        // Si no está registrado, registrarlo primero
         if (!serverPlayers.ContainsKey(clientKey))
         {
             string playerName = "Player_" + (serverClients.Count + 2);
             
-            // Intentar extraer el nombre si viene en el mensaje
             if (!message.StartsWith("PLAYER_DATA") && !message.StartsWith("SHOOT_DATA"))
             {
                 playerName = message.Trim();
             }
 
-            int newPlayerId = serverClients.Count + 2; // +2 porque el servidor es Player 1
+            int newPlayerId = serverClients.Count + 2;
             
             PlayerInfo playerInfo = new PlayerInfo
             {
@@ -405,9 +402,8 @@ public class GameController : MonoBehaviour
         switch (messageType)
         {
             case NetworkProtocol.PLAYER_DATA:
-                // NO reenviar los datos del cliente de vuelta a todos
-                // Solo procesarlos localmente y enviar a OTROS clientes
-                BroadcastToClients(message, sender); // exclude sender
+
+                BroadcastToClients(message, sender); 
                 ProcessPlayerData(data);
                 break;
 
@@ -530,7 +526,6 @@ public class GameController : MonoBehaviour
         GameObject localPlayer = PlayerManager.Instance?.LocalPlayer;
         if (localPlayer == null) return;
 
-        // 1. Obtenim l'estat actual complet
         PlayerState currentState;
         if (cachedInputManager != null)
         {
@@ -545,25 +540,20 @@ public class GameController : MonoBehaviour
             );
         }
 
-        // 2. Comprovem canvis de MOVIMENT
         bool positionChanged = Vector3.Distance(currentState.GetPosition(), lastSentPosition) > MOV_THRESHOLD;
         bool rotationChanged = Mathf.Abs(currentState.rotY - lastSentRotation) > ROT_THRESHOLD;
 
-        // 3. Comprovem canvis d'ESTAT (Animacions)
-        // Si qualsevol d'aquests canvia, hem d'enviar paquet encara que estiguem quiets
         bool stateChanged = (currentState.isAiming != lastSentAiming) ||
                             (currentState.isCrouching != lastSentCrouching) ||
                             (currentState.isGrounded != lastSentGrounded) ||
                             (currentState.shootCount != lastSentShootCount);
 
-        // 4. Decidim si enviar o no
-        // Si no hi ha cap canvi I fa menys d'1 segon de l'últim paquet -> NO ENVIEM
+
         if (!positionChanged && !rotationChanged && !stateChanged && Time.time - lastPacketTime < 1.0f)
         {
             return;
         }
 
-        // 5. Actualitzem l'últim estat conegut
         lastSentPosition = currentState.GetPosition();
         lastSentRotation = currentState.rotY;
         lastSentAiming = currentState.isAiming;
@@ -571,7 +561,6 @@ public class GameController : MonoBehaviour
         lastSentGrounded = currentState.isGrounded;
         lastSentShootCount = currentState.shootCount;
 
-        // 6. Enviem el paquet
         try
         {
             string jsonMessage = NetworkProtocol.BuildMessage(NetworkProtocol.PLAYER_DATA, currentState);
@@ -703,13 +692,11 @@ public class GameController : MonoBehaviour
 
             if (isServerHost)
             {
-                // El host aplica el daño localmente y hace broadcast a los clientes
                 BarricadaManager.Instance?.ApplyDamageToBarricada(barricadaId, damage);
                 BroadcastToClients(message);
             }
             else
             {
-                // Cliente: enviar al servidor (el cliente ya aplicó el daño localmente)
                 udpSocket.SendTo(data, serverEndPoint);
             }
         }

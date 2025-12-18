@@ -86,11 +86,10 @@ public class AmmoDisplay : MonoBehaviour
         
         if (weaponController == null)
         {
-            // Fallback: buscar cualquier WeaponController activo
             WeaponController[] weapons = FindObjectsByType<WeaponController>(FindObjectsSortMode.None);
             foreach (var weapon in weapons)
             {
-                // Verificar si es del jugador local (puedes ajustar esta lógica)
+                // Verificar si es del jugador local 
                 if (weapon.gameObject.activeInHierarchy)
                 {
                     weaponController = weapon;
@@ -111,7 +110,6 @@ public class AmmoDisplay : MonoBehaviour
         {
             currentAmmoText.text = currentAmmo.ToString();
             
-            // Cambiar color según munición
             float ammoPercent = (float)currentAmmo / maxMagazine;
             if (currentAmmo == 0)
                 currentAmmoText.color = noAmmoColor;
@@ -131,7 +129,6 @@ public class AmmoDisplay : MonoBehaviour
     {
         bool isReloading = weaponController.IsReloading();
         
-        // Mostrar/ocultar elementos de recarga
         if (reloadText != null)
         {
             reloadText.gameObject.SetActive(isReloading);
@@ -158,9 +155,6 @@ public class AmmoDisplay : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Asigna manualmente el WeaponController
-    /// </summary>
     public void SetWeaponController(WeaponController weapon)
     {
         weaponController = weapon;
