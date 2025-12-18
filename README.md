@@ -2,24 +2,21 @@
 
  	Adrià Roger: Serialització general + correcció errors.
 
- 	Dídac Pérez: Animacions + serialització animacions.
+ 	Dídac Pérez: Animacions + serialització animacions i lògica del jugador.
 
- 	Izan Sánchez: Estadístiques UI, Mapa + Serialitzar animacions del mapa.
+ 	Izan Sánchez: Estadístiques UI, Mapa + Serialitzar animacions del mapa, debug mode.
 
- 	Pau Blanco: Barricada destructible i botiquin + serialitzar botiquin.
+ 	Pau Blanco: Barricada destructible i botiquin + serialitzar botiquin i solucionar bug barricades.
 
 
 
 **-Known issues**
 
- 	Animacions mapa van amb una mica de LAG.
-
- 	Moviment lateral en "crouch" no funciona bé.
-
- 	Sobreposicó de canvas al morir (normal al respawnejar).
-
- 	Tornar al menú i tornar a crear partida fa que la UI no vagi bé.
-
+Falta acabar game-loop.
+S'ha de reduir el lag.
+S'ha de solucionar un error de connexió de players per poder tenir més jugadors connectas alhora.
+Solucionar  shake de mirilla.
+Botó main menu en sala de espera que no va.
 
 
 **-Next steps**
@@ -33,13 +30,21 @@ Serialitzar rotació tors.
 
  	Dispar automàtic.
 
- 	Vida que es regeneri.
-
  	Afegir "Spawn Points" aleatoris.
 
  	Condició Win-Lose.
 
  	Millorar serialització (Binari?).
+
+   Munició serialitzada per el mapa.
+
+   Scoreboard.
+
+   Introducció.
+
+   SFX i ambient music.
+
+   feedback visual.
 
 
 
